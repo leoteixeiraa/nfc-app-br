@@ -1,0 +1,17 @@
+{$APP_DOMAIN}, *.{$APP_DOMAIN} {
+    encode zstd gzip
+
+    tls {
+        dns cloudflare {env.CADDY_DNS_API_TOKEN}
+    }
+
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

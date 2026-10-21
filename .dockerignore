@@ -1,0 +1,10 @@
+.git
+.github
+**/node_modules
+**/target
+**/dist
+**/.angular
+**/coverage
+**/.DS_Store
+.env
+backups

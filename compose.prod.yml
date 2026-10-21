@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build:
+      target: wildcard-runtime
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Configure APP_DOMAIN no arquivo .env}
+      CADDY_DNS_API_TOKEN: ${CADDY_DNS_API_TOKEN:?Configure CADDY_DNS_API_TOKEN para validação DNS-01}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infrastructure/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

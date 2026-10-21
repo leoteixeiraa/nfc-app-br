@@ -1,0 +1,19 @@
+<main class="page-shell">
+  <section class="intro-card" aria-labelledby="page-title">
+    <div class="brand-mark" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+    <p class="eyebrow">GESTÃO INTELIGENTE</p>
+    <h1 id="page-title">NFC<span>.</span>APP</h1>
+    <p class="description">Plataforma de gerenciamento de placas NFC.</p>
+
+    <div class="status-card" [attr.data-state]="apiState()" role="status" aria-live="polite">
+      <span class="status-indicator" aria-hidden="true"></span>
+      <div>
+        <span class="status-label">Status da plataforma</span>
+        <p>{{ statusMessage() }}</p>
+      </div>
+    </div>
+    <p class="footer-note">Uma base simples, pronta para evoluir.</p>
+  </section>
+</main>
