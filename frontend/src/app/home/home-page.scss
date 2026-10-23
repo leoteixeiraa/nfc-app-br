@@ -1,120 +1,177 @@
 :host {
   display: block;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.page-shell {
-  display: grid;
-  min-height: 100vh;
-  padding: 2rem;
-  place-items: center;
-  background:
-    radial-gradient(ellipse at 14% 12%, rgb(32 155 111 / 10%), transparent 34rem),
-    radial-gradient(ellipse at 88% 88%, rgb(235 167 94 / 13%), transparent 30rem),
-    #f4f7f5;
-}
-
-.intro-card {
-  width: min(100%, 36rem);
-  padding: clamp(2rem, 7vw, 4.5rem);
-  border: 1px solid #e3eae5;
-  border-radius: 1.5rem;
-  background: rgb(255 255 255 / 88%);
-  box-shadow: 0 24px 80px rgb(30 55 44 / 8%);
-  text-align: center;
-}
-
-.brand-mark {
+.app-shell {
   display: flex;
-  width: 3rem;
-  height: 3rem;
-  margin: 0 auto 2rem;
+  width: min(100%, 1440px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 0 clamp(1.25rem, 6vw, 5.5rem);
+  flex-direction: column;
+}
+
+.topbar,
+.page-footer {
+  display: flex;
+  min-height: 5.5rem;
   align-items: center;
-  justify-content: center;
-  gap: 0.22rem;
-  border-radius: 1rem;
-  background: #e8f5ee;
-  transform: rotate(-8deg);
+  justify-content: space-between;
+}
 
-  span {
-    width: 0.35rem;
-    border-radius: 1rem;
-    background: #16845f;
-    transform: rotate(8deg);
-  }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #17231e;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
 
-  span:nth-child(1) { height: 0.8rem; }
-  span:nth-child(2) { height: 1.25rem; }
-  span:nth-child(3) { height: 0.8rem; }
+.brand-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: #087957;
+  border: 1px solid #d9eee4;
+  border-radius: 0.75rem;
+  background: #eff8f3;
+  place-items: center;
+}
+
+.brand-dot { color: #15956b; }
+.topbar-caption, .page-footer { color: #78857f; font-size: 0.8rem; }
+.account-actions { display: flex; align-items: center; gap: 0.9rem; }
+
+.page-content {
+  display: grid;
+  width: min(100%, 68rem);
+  margin: auto;
+  padding: 5rem 0;
+  align-items: center;
+  gap: clamp(3rem, 8vw, 8rem);
+  grid-template-columns: minmax(0, 1.15fr) minmax(19rem, 0.85fr);
 }
 
 .eyebrow {
-  margin: 0 0 0.75rem;
-  color: #668076;
-  font-size: 0.7rem;
-  font-weight: 750;
-  letter-spacing: 0.18em;
+  display: flex;
+  margin: 0 0 1.4rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: #16845f;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrow span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #1caa78;
 }
 
 h1 {
   margin: 0;
-  color: #18211f;
-  font-size: clamp(3rem, 12vw, 5rem);
-  font-weight: 780;
-  letter-spacing: -0.09em;
-  line-height: 1;
-
-  span { color: #1a936c; }
+  color: #19251f;
+  font-size: clamp(2.7rem, 5.6vw, 4.7rem);
+  font-weight: 720;
+  letter-spacing: -0.075em;
+  line-height: 1.06;
 }
+
+h1 span { color: #16845f; }
 
 .description {
-  margin: 1.2rem 0 2.5rem;
-  color: #65736e;
-  font-size: clamp(1rem, 3vw, 1.15rem);
+  max-width: 31rem;
+  margin: 1.4rem 0 0;
+  color: #697770;
+  font-size: 1.05rem;
+  line-height: 1.8;
 }
 
-.status-card {
+.foundation-note {
   display: flex;
-  padding: 1rem 1.15rem;
-  align-items: center;
-  gap: 0.85rem;
-  border: 1px solid #e6ece8;
-  border-radius: 0.9rem;
-  background: #fbfcfb;
-  text-align: left;
-
-  &[data-state='online'] .status-indicator { background: #1a936c; box-shadow: 0 0 0 4px #e4f4ed; }
-  &[data-state='offline'] .status-indicator { background: #c4554d; box-shadow: 0 0 0 4px #fae9e7; }
-}
-
-.status-indicator {
-  width: 0.65rem;
-  height: 0.65rem;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #d6a345;
-  box-shadow: 0 0 0 4px #fbf2df;
-}
-
-.status-label {
-  color: #52645d;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.status-card p {
-  margin: 0.25rem 0 0;
-  color: #7a8782;
-  font-size: 0.84rem;
-}
-
-.footer-note {
   margin: 2rem 0 0;
-  color: #9aa59f;
-  font-size: 0.78rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: #87938d;
+  font-size: 0.8rem;
+}
+
+.foundation-note i { color: #16845f; }
+
+.status-panel {
+  padding: 0.5rem;
+  border: 1px solid #e8eeea;
+  border-radius: 1.1rem;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(25 48 37 / 8%);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.panel-icon {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  color: #16845f;
+  border-radius: 0.85rem;
+  background: #edf7f1;
+  place-items: center;
+}
+
+.panel-eyebrow { margin: 0 0 0.2rem; color: #849089; font-size: 0.72rem; }
+.panel-heading h2 { margin: 0; color: #26332c; font-size: 1rem; font-weight: 650; }
+
+.service-row {
+  display: flex;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  align-items: center;
+  gap: 0.8rem;
+  border: 1px solid #edf1ee;
+  border-radius: 0.85rem;
+  background: #fbfcfb;
+}
+
+.service-icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  color: #a87919;
+  border-radius: 50%;
+  background: #fbf3df;
+  place-items: center;
+}
+
+.service-row[data-state='online'] .service-icon { color: #16845f; background: #e8f5ee; }
+.service-row[data-state='offline'] .service-icon { color: #bd5148; background: #faeae8; }
+.service-copy { display: grid; min-width: 0; flex: 1; gap: 0.25rem; }
+.service-name { color: #35433b; font-size: 0.85rem; font-weight: 650; }
+.service-description { color: #849089; font-size: 0.76rem; line-height: 1.45; }
+.panel-footnote { margin: 1rem 0 0; color: #929d96; font-size: 0.72rem; line-height: 1.5; }
+.page-footer { min-height: 4rem; border-top: 1px solid #e9eeeb; font-size: 0.72rem; }
+
+@media (max-width: 760px) {
+  .page-content { max-width: 34rem; padding: 4rem 0; gap: 2.5rem; grid-template-columns: 1fr; }
+  h1 { font-size: clamp(2.8rem, 10vw, 4rem); }
 }
 
 @media (max-width: 480px) {
-  .page-shell { padding: 1rem; }
-  .intro-card { padding: 2.25rem 1.4rem; }
+  .app-shell { padding: 0 1.15rem; }
+  .topbar { min-height: 4.5rem; }
+  .topbar-caption { font-size: 0.7rem; }
+  .account-actions { gap: 0.5rem; }
+  .page-content { padding: 3rem 0; }
+  .page-footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 0.35rem; }
 }

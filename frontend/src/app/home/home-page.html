@@ -1,19 +1,57 @@
-<main class="page-shell">
-  <section class="intro-card" aria-labelledby="page-title">
-    <div class="brand-mark" aria-hidden="true">
-      <span></span><span></span><span></span>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="NFC.APP — página inicial">
+      <span class="brand-icon" aria-hidden="true"><i class="pi pi-wifi"></i></span>
+      <span>NFC<span class="brand-dot">.</span>APP</span>
+    </a>
+    <div class="account-actions">
+      <span class="topbar-caption">{{ userEmail() }}</span>
+      <p-button label="Sair" icon="pi pi-sign-out" severity="secondary" [outlined]="true" (onClick)="signOut()" />
     </div>
-    <p class="eyebrow">GESTÃO INTELIGENTE</p>
-    <h1 id="page-title">NFC<span>.</span>APP</h1>
-    <p class="description">Plataforma de gerenciamento de placas NFC.</p>
+  </header>
 
-    <div class="status-card" [attr.data-state]="apiState()" role="status" aria-live="polite">
-      <span class="status-indicator" aria-hidden="true"></span>
-      <div>
-        <span class="status-label">Status da plataforma</span>
-        <p>{{ statusMessage() }}</p>
+  <main class="page-content">
+    <section class="welcome" aria-labelledby="page-title">
+      <p class="eyebrow"><span aria-hidden="true"></span> Plataforma de gestão</p>
+      <h1 id="page-title">Conexões simples.<br /><span>Gestão inteligente.</span></h1>
+      <p class="description">
+        Um espaço para gerenciar suas placas NFC, com uma base clara e pronta para evoluir.
+      </p>
+      <p class="foundation-note">
+        <i class="pi pi-lock" aria-hidden="true"></i>
+        Ambiente protegido e monitorado
+      </p>
+    </section>
+
+    <p-card styleClass="status-panel">
+      <div class="panel-heading">
+        <span class="panel-icon" aria-hidden="true"><i class="pi pi-server"></i></span>
+        <div>
+          <p class="panel-eyebrow">Conectividade</p>
+          <h2>Serviços da plataforma</h2>
+        </div>
       </div>
-    </div>
-    <p class="footer-note">Uma base simples, pronta para evoluir.</p>
-  </section>
-</main>
+
+      <div class="service-row" [attr.data-state]="apiState()" role="status" aria-live="polite">
+        <span class="service-icon" aria-hidden="true">
+          <i class="pi" [class.pi-spin]="apiState() === 'checking'"
+            [class.pi-spinner]="apiState() === 'checking'"
+            [class.pi-check]="apiState() === 'online'"
+            [class.pi-times]="apiState() === 'offline'"></i>
+        </span>
+        <div class="service-copy">
+          <span class="service-name">API</span>
+          <span class="service-description">{{ statusMessage() }}</span>
+        </div>
+        <p-tag [value]="statusLabel()" [severity]="statusSeverity()" [rounded]="true" />
+      </div>
+
+      <p class="panel-footnote">O status é atualizado automaticamente ao abrir a página.</p>
+    </p-card>
+  </main>
+
+  <footer class="page-footer">
+    <span>© 2026 NFC.APP</span>
+    <span>Uma base simples, pronta para evoluir.</span>
+  </footer>
+</div>

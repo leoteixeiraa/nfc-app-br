@@ -37,7 +37,9 @@ docker compose up -d --build
 
 O frontend estará em `http://localhost` (ou na porta de `HTTP_PORT`). O Caddy encaminha `/api/*` ao backend. O status mínimo da API pode ser consultado em `http://localhost/api/status`; o health check do Actuator é `http://localhost/actuator/health` apenas dentro da rede Docker, pois somente `/api/*` é encaminhado pelo proxy.
 
-O banco não publica portas no host. PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva os dados. Para removê-los explicitamente, use `docker compose down -v` (operação destrutiva).
+Para conectar ao PostgreSQL pelo DBeaver na máquina local, use o driver PostgreSQL com host `localhost`, porta `5432`, database `nfcapp` e usuário `nfcapp`. A senha é o valor de `POSTGRES_PASSWORD` no arquivo `.env`; database e usuário também podem ser conferidos ali. A porta é vinculada somente a `127.0.0.1`, sem exposição à rede externa. Se alterar a configuração ou habilitar essa porta pela primeira vez, aplique-a com `docker compose up -d database`.
+
+PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva os dados. Para removê-los explicitamente, use `docker compose down -v` (operação destrutiva).
 
 ## Logs e operações
 

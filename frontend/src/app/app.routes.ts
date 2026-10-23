@@ -1,7 +1,17 @@
 import { Routes } from '@angular/router';
-import { HomePage } from './home/home-page';
+import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-	{ path: '', component: HomePage, title: 'NFC.APP' },
+	{
+		path: 'login',
+		loadComponent: () => import('./auth/login-page').then((module) => module.LoginPage),
+		title: 'Entrar | NFC.APP'
+	},
+	{
+		path: '',
+		loadComponent: () => import('./home/home-page').then((module) => module.HomePage),
+		canActivate: [authGuard],
+		title: 'NFC.APP'
+	},
 	{ path: '**', redirectTo: '' }
 ];
