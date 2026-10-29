@@ -1,0 +1,7 @@
+@if (startIcon) {
+  <span class="inline-flex shrink-0" [innerHTML]="startIcon | safeHtml"></span>
+}
+<ng-content></ng-content>
+@if (endIcon) {
+  <span class="inline-flex shrink-0" [innerHTML]="endIcon | safeHtml"></span>
+}

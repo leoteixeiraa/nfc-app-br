@@ -1,4 +1,4 @@
-FROM node:24.12.0-alpine AS build
+FROM node:24.15.0-alpine AS build
 WORKDIR /workspace
 
 COPY package.json package-lock.json ./
@@ -7,7 +7,7 @@ COPY . ./
 RUN npm run build
 
 FROM caddy:2.11.7-alpine AS runtime
-COPY --from=build /workspace/dist/frontend/browser /srv
+COPY --from=build /workspace/dist/ng-tailadmin/browser /srv
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
@@ -20,7 +20,7 @@ RUN xcaddy build --with github.com/caddy-dns/cloudflare
 
 FROM caddy:2.11.7-alpine AS wildcard-runtime
 COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
-COPY --from=build /workspace/dist/frontend/browser /srv
+COPY --from=build /workspace/dist/ng-tailadmin/browser /srv
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
