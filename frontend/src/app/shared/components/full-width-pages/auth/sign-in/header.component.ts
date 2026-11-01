@@ -17,7 +17,7 @@ import { Component, Input } from '@angular/core';
   ],
 })
 export class SignInHeaderComponent {
-  @Input() title: string = 'Sign In';
-  @Input() description: string = 'Enter your email and password to sign in!';
+  @Input() title: string = 'Entrar na NFC.APP';
+  @Input() description: string = 'Acesse sua conta com o Google.';
   @Input() className: string = '';
 }

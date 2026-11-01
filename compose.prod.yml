@@ -1,4 +1,8 @@
 services:
+  backend:
+    environment:
+      SESSION_COOKIE_SECURE: "true"
+
   frontend:
     build:
       target: wildcard-runtime

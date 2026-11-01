@@ -27,6 +27,7 @@
         "@spartan-ng/brain": "1.6.3",
         "@tailwindcss/postcss": "^4.1.11",
         "apexcharts": "^7.1.0",
+        "firebase": "^13.1.0",
         "flatpickr": "^4.6.13",
         "fullcalendar": "^7.0.2",
         "jsvectormap": "^1.7.0",

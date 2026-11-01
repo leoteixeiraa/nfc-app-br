@@ -20,6 +20,13 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
   forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -38,5 +45,7 @@ management:
       enabled: true
 
 app:
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost}

@@ -35,15 +35,11 @@ docker compose up -d --build
 Frontend: http://localhost  
 Status da API: http://localhost/api/status
 
-## Autenticação Firebase
+## Autenticação Google (Firebase Authentication)
 
-Crie um app Web no Firebase Console, habilite **Authentication > Sign-in method > E-mail/senha** e **Google**, e cadastre as contas autorizadas. Na configuração do provedor Google, use o ID de cliente Web OAuth criado para o projeto. Copie do app Web os valores `apiKey`, `authDomain`, `projectId` e `appId` para as variáveis `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` e `FIREBASE_APP_ID` do `.env` (os nomes estão em `.env.example`). Inclua `localhost` e o domínio de produção em **Authentication > Settings > Authorized domains**. Depois reconstrua o frontend:
+No Firebase Console, habilite o provedor **Google** em Authentication e adicione o domínio de produção em *Authorized domains* (`localhost` já vem autorizado). Configure `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` e `FIREBASE_APP_ID` no `.env`; o frontend lê esses valores públicos em `/firebase-config.json`, gerado na inicialização do contêiner.
 
-```sh
-docker compose up -d --build frontend
-```
-
-A configuração Web é pública por natureza; restrinja a chave às APIs necessárias e configure os domínios autorizados no Firebase Authentication.
+O Angular abre o popup do Google via Firebase SDK e envia o ID token para `POST /api/auth/session`. O backend valida assinatura, emissor, audiência e e-mail Google verificado, cria a conta no primeiro acesso e abre uma sessão no servidor; o Firebase não mantém estado no navegador. Login e cadastro usam o mesmo fluxo; não há senha local. O navegador recebe apenas um cookie `HttpOnly`, `SameSite=Lax`; em produção `SESSION_COOKIE_SECURE=true` deve ser mantido.
 
 ## Comandos úteis
 

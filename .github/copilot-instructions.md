@@ -6,7 +6,7 @@
 - Usar migrations Flyway para mudanças de esquema; nunca habilitar `ddl-auto=update`.
 - Preferir caminhos relativos `/api` no frontend e configuração por variáveis de ambiente.
 - Manter PostgreSQL e backend sem portas públicas; Caddy é a única entrada externa.
-- Não adicionar Firebase, Kubernetes, brokers, Redis ou serviços proprietários.
+- Não adicionar Kubernetes, brokers, Redis ou serviços proprietários. Firebase é permitido somente para Authentication (login Google).
 
 ## Checklist de fundação
 - [x] Requisitos e tecnologias definidos.

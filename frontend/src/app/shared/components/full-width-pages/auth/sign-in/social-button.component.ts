@@ -33,7 +33,7 @@ export class SocialButtonComponent {
   selector: 'app-social-buttons',
   imports: [CommonModule, SocialButtonComponent],
   template: `
-    <div [class]="'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 ' + className">
+    <div [class]="'grid grid-cols-1 gap-3 sm:gap-5 ' + className">
       @for (provider of providers; track provider.id) {
         <app-social-button
           [provider]="provider"

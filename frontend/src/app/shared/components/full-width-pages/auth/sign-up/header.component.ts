@@ -17,7 +17,7 @@ import { Component, Input } from '@angular/core';
   ],
 })
 export class SignUpHeaderComponent {
-  @Input() title: string = 'Sign Up';
-  @Input() description: string = 'Enter your email and password to sign up!';
+  @Input() title: string = 'Criar conta';
+  @Input() description: string = 'Crie sua conta de forma segura com o Google.';
   @Input() className: string = '';
 }

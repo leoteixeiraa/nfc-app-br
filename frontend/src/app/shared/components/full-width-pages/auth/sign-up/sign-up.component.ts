@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { AuthDividerComponent } from '../../shared/auth-divider/auth-divider.component';
-import { SignUpFormFieldsComponent } from './form.component';
+import { Router, RouterModule } from '@angular/router';
+import { AuthService } from '../../../../../core/auth/auth.service';
+import { googleSignInErrorMessage } from '../../../../../core/auth/google-sign-in-error';
 import { SignUpHeaderComponent } from './header.component';
 import { SocialButtonsComponent } from './social-button.component';
 
@@ -11,10 +11,8 @@ import { SocialButtonsComponent } from './social-button.component';
   imports: [
     CommonModule,
     RouterModule,
-    AuthDividerComponent,
     SignUpHeaderComponent,
     SocialButtonsComponent,
-    SignUpFormFieldsComponent,
   ],
   templateUrl: './sign-up.component.html',
   host: {
@@ -30,4 +28,29 @@ import { SocialButtonsComponent } from './social-button.component';
 })
 export class SignUpContentComponent {
   @Input() className: string = '';
+  errorMessage = '';
+  isConnecting = false;
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) {
+    this.authService.preloadGoogleSignIn();
+  }
+
+  onProviderSelected(providerId: string): void {
+    if (providerId !== 'google' || this.isConnecting) {
+      return;
+    }
+
+    this.isConnecting = true;
+    this.errorMessage = '';
+    this.authService.signInWithGoogle().subscribe({
+      next: () => void this.router.navigateByUrl('/'),
+      error: (error: unknown) => {
+        this.isConnecting = false;
+        this.errorMessage = googleSignInErrorMessage(error);
+      },
+    });
+  }
 }

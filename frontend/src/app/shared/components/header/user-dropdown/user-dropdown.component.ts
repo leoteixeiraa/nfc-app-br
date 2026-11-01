@@ -1,9 +1,11 @@
 import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { DropdownService } from '../../../services/dropdown.service';
 import { ButtonComponent } from '../../ui/button/button.component';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { AuthSessionStore } from '../../../../core/auth/auth-session.store';
 
 interface Language {
   id: string;
@@ -23,6 +25,8 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
   isOpen = false;
   subDropdownOpen = false;
   currentLocale = 'en';
+  logoutError = '';
+  isLoggingOut = false;
 
   languages: Language[] = [
     {
@@ -57,7 +61,10 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
   constructor(
     private elementRef: ElementRef,
     private dropdownService: DropdownService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private authService: AuthService,
+    public sessionStore: AuthSessionStore,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -92,6 +99,25 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
 
   closeDropdown(): void {
     this.dropdownService.close(this.dropdownId);
+  }
+
+  logout(): void {
+    if (this.isLoggingOut) {
+      return;
+    }
+
+    this.isLoggingOut = true;
+    this.logoutError = '';
+    this.authService.logout().subscribe({
+      next: () => {
+        this.closeDropdown();
+        void this.router.navigateByUrl('/signin');
+      },
+      error: () => {
+        this.isLoggingOut = false;
+        this.logoutError = 'Não foi possível encerrar a sessão. Tente novamente.';
+      },
+    });
   }
 
   private subCloseTimer?: ReturnType<typeof setTimeout>;
