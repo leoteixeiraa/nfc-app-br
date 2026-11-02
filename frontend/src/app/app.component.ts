@@ -11,7 +11,7 @@ import { RouterModule } from '@angular/router';
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {
-  title = 'Angular Ecommerce Dashboard | TailAdmin';
+  title = 'nfc.app.br | Gestão de experiências NFC';
 
   ngOnInit(): void {
     const savedDir = localStorage.getItem('dir');

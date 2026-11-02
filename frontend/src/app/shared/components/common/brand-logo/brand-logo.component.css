@@ -1,0 +1,44 @@
+:host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.brand-logo__image {
+  display: block;
+  width: 188px;
+  max-width: 100%;
+  height: auto;
+}
+
+.brand-logo__image--dark {
+  display: none;
+}
+
+.brand-logo__icon {
+  display: block;
+  width: 31px;
+  height: 38px;
+  object-fit: contain;
+}
+
+:host-context(.dark) .brand-logo__image--light,
+.brand-logo--light .brand-logo__image--light {
+  display: none;
+}
+
+:host-context(.dark) .brand-logo__image--dark,
+.brand-logo--light .brand-logo__image--dark {
+  display: block;
+}
+
+@media (max-width: 639px) {
+  .brand-logo__image {
+    width: 154px;
+  }
+}

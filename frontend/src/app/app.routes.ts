@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
-import { EcommerceComponent } from './pages/dashboard/ecommerce/ecommerce.component';
+import { TagsDashboardComponent } from './pages/tags/tags-dashboard/tags-dashboard.component';
+import { TagFormComponent } from './pages/tags/tag-form/tag-form.component';
 import { ProfileComponent } from './pages/profile/profile.component';
 import { FormElementsComponent } from './pages/forms/form-elements/form-elements.component';
 import { BasicTablesComponent } from './pages/tables/basic-tables/basic-tables.component';
@@ -24,16 +25,27 @@ export const routes: Routes = [
   {
     path:'',
     component:AppLayoutComponent,
-    canActivate: [authGuard],
-    canActivateChild: [authGuard],
     children:[
       {
         path: '',
-        component: EcommerceComponent,
+        component: TagsDashboardComponent,
         pathMatch: 'full',
-        title:
-          'Angular Ecommerce Dashboard | TailAdmin - Angular Admin Dashboard Template',
+        title: 'Minhas placas | NFC.APP',
       },
+      {
+        path: 'tags/new',
+        component: TagFormComponent,
+        title: 'Nova placa | NFC.APP',
+      },
+      {
+        path: 'tags/:id/edit',
+        component: TagFormComponent,
+        title: 'Editar placa | NFC.APP',
+      },
+      {
+        path: '',
+        canActivateChild: [authGuard],
+        children: [
       {
         path:'calendar',
         component:CalendarComponent,
@@ -104,6 +116,8 @@ export const routes: Routes = [
         path:'videos',
         component:VideosComponent,
         title:'Angular Videos Dashboard | TailAdmin - Angular Admin Dashboard Template'
+      },
+        ]
       },
     ]
   },

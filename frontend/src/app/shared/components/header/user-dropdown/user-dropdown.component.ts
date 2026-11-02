@@ -68,6 +68,8 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Dashboard público: descobre se já existe sessão sem forçar login.
+    this.authService.getCurrentUser().subscribe({ error: () => undefined });
     const savedDir = localStorage.getItem('dir');
     const isRtl = savedDir === 'rtl' || document.documentElement.getAttribute('dir') === 'rtl';
     this.currentLocale = isRtl ? 'ar' : 'en';

@@ -1,3 +1,15 @@
+<!-- Visitante: acesso discreto ao login -->
+@if (!sessionStore.currentUser()) {
+<a
+  app-button
+  variant="outline"
+  size="sm"
+  routerLink="/signin"
+  class="text-gray-700 dark:text-gray-300"
+>
+  Entrar
+</a>
+} @else {
 <div class="relative">
   <button app-button variant="unstyled"
     class="dropdown-toggle flex items-center text-gray-700 dark:text-gray-400"
@@ -252,3 +264,4 @@
     </div>
   }
 </div>
+        }

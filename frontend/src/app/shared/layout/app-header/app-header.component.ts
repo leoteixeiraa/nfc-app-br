@@ -5,13 +5,14 @@ import { ThemeToggleButtonComponent } from '../../components/common/theme-toggle
 import { NotificationDropdownComponent } from '../../components/header/notification-dropdown/notification-dropdown.component';
 import { UserDropdownComponent } from '../../components/header/user-dropdown/user-dropdown.component';
 import { SidebarService } from '../../services/sidebar.service';
+import { BrandLogoComponent } from '../../components/common/brand-logo/brand-logo.component';
 
 import { ButtonComponent } from '../../components/ui/button/button.component';
 import { InputDirective } from '../../components/ui/input/input.directive';
 
 @Component({
   selector: 'app-header',
-  imports: [InputDirective, ButtonComponent, 
+  imports: [BrandLogoComponent, InputDirective, ButtonComponent,
     CommonModule,
     RouterModule,
     ThemeToggleButtonComponent,

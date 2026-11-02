@@ -21,24 +21,11 @@
       'justify-start': (isExpanded$ | async) || (isHovered$ | async)
     }"
   >
-    <a routerLink="/">
+    <a routerLink="/" aria-label="nfc.app.br">
       @if ((isExpanded$ | async) || (isHovered$ | async) || (isMobileOpen$ | async)) {
-        <img
-          class="dark:hidden"
-          src="/images/logo/logo.svg"
-          alt="Logo"
-          width="150"
-          height="40"
-        />
-        <img
-          class="hidden dark:block"
-          src="/images/logo/logo-dark.svg"
-          alt="Logo"
-          width="150"
-          height="40"
-        />
+        <app-brand-logo />
       } @else {
-        <img src="/images/logo/logo-icon.svg" alt="Logo" width="32" height="32" />
+        <app-brand-logo [compact]="true" />
       }
     </a>
   </div>
@@ -406,8 +393,5 @@
         <!-- end other section -->
       </div>
     </nav>
-    @if ((isExpanded$ | async) || (isHovered$ | async) || (isMobileOpen$ | async)) {
-      <app-sidebar-widget />
-    }
   </div>
 </aside>

@@ -1,0 +1,14 @@
+<span
+  class="brand-logo"
+  [class.brand-logo--compact]="compact"
+  [class.brand-logo--light]="light"
+  role="img"
+  aria-label="nfc.app.br"
+>
+  @if (compact) {
+    <img class="brand-logo__icon" src="/images/brand/nfc-symbol.png" alt="" />
+  } @else {
+    <img class="brand-logo__image brand-logo__image--light" src="/images/brand/nfc-logo-light.png" alt="" />
+    <img class="brand-logo__image brand-logo__image--dark" src="/images/brand/nfc-logo-dark.png" alt="" />
+  }
+</span>

@@ -1,0 +1,94 @@
+<div class="mx-auto max-w-2xl">
+  <h1 class="mb-6 text-title-sm font-semibold text-gray-800 dark:text-white/90">
+    {{ isEditing ? 'Editar placa' : 'Nova placa' }}
+  </h1>
+
+  @if (notFound()) {
+    <div
+      role="alert"
+      class="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400"
+    >
+      <p>{{ submitError() || 'Placa não encontrada neste navegador.' }}</p>
+      <a app-button variant="outline" routerLink="/">Voltar às placas</a>
+    </div>
+  } @else {
+    <form
+      [formGroup]="form"
+      (ngSubmit)="save()"
+      novalidate
+      class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 dark:border-gray-800 dark:bg-white/3"
+    >
+      <div class="space-y-2">
+        <label for="tag-name" class="text-sm font-medium text-gray-700 dark:text-gray-400">Nome da placa</label>
+        <input
+          app-input
+          unstyled
+          id="tag-name"
+          type="text"
+          formControlName="name"
+          [attr.maxlength]="nameMaxLength"
+          placeholder="Ex.: Balcão da loja"
+          [className]="fieldClasses"
+          [attr.aria-invalid]="showError('name') ? 'true' : null"
+        />
+        @if (showError('name'); as message) {
+          <p class="text-xs text-error-500">{{ message }}</p>
+        }
+      </div>
+
+      <div class="space-y-2">
+        <label for="tag-type" class="text-sm font-medium text-gray-700 dark:text-gray-400">Tipo de destino</label>
+        <select
+          id="tag-type"
+          [class]="fieldClasses"
+          [value]="form.controls.type.value"
+          (change)="onTypeChange($event)"
+        >
+          @for (item of types; track item.value) {
+            <option [value]="item.value" [selected]="item.value === form.controls.type.value">
+              {{ item.label }}
+            </option>
+          }
+        </select>
+      </div>
+
+      <div class="space-y-2">
+        <label for="tag-destination" class="text-sm font-medium text-gray-700 dark:text-gray-400">
+          {{ destinationLabel }}
+        </label>
+        <input
+          app-input
+          unstyled
+          id="tag-destination"
+          [type]="isWhatsapp ? 'tel' : 'url'"
+          formControlName="destination"
+          [placeholder]="destinationPlaceholder"
+          [className]="fieldClasses"
+          [attr.aria-invalid]="showError('destination') ? 'true' : null"
+        />
+        @if (isWhatsapp) {
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            Será gerado o link https://wa.me/ com o número informado.
+          </p>
+        }
+        @if (showError('destination'); as message) {
+          <p class="text-xs text-error-500">{{ message }}</p>
+        }
+      </div>
+
+      @if (submitError()) {
+        <div
+          role="alert"
+          class="rounded-xl border border-error-500 bg-error-50 p-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-500"
+        >
+          {{ submitError() }}
+        </div>
+      }
+
+      <div class="flex flex-wrap justify-end gap-3">
+        <a app-button variant="outline" routerLink="/">Cancelar</a>
+        <button app-button type="submit">{{ isEditing ? 'Salvar alterações' : 'Criar placa' }}</button>
+      </div>
+    </form>
+  }
+</div>
