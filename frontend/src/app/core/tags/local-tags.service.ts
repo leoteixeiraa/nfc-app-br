@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { isNfcTagType, NAME_MAX_LENGTH, NfcTag, NfcTagInput, validateTagInput } from './nfc-tag';
+import { isNfcTagType, NfcTag, NfcTagInput, validateTagInput } from './nfc-tag';
 
 export const LOCAL_TAGS_STORAGE_KEY = 'nfcapp.tags.v1';
 
@@ -58,12 +58,24 @@ export class LocalTagsService {
     const copy: NfcTag = {
       ...source,
       id: crypto.randomUUID(),
-      name: `${source.name} (cópia)`.slice(0, NAME_MAX_LENGTH),
+      name: source.name,
+      publicUrl: undefined,
+      managementToken: undefined,
+      qrCodeDataUri: undefined,
+      active: undefined,
       createdAt: now,
       updatedAt: now,
     };
     this.writeAll([...tags, copy]);
     return copy;
+  }
+
+  saveRemote(tag: NfcTag): void {
+    if (!this.isValidTag(tag)) {
+      throw new LocalTagsError('invalid', 'Os dados recebidos para a placa são inválidos.');
+    }
+    const tags = this.readAll();
+    this.writeAll([tag, ...tags.filter((current) => current.id !== tag.id)]);
   }
 
   remove(id: string): void {
@@ -79,6 +91,10 @@ export class LocalTagsService {
       name: input.name.trim(),
       type: input.type,
       destinationUrl: input.destinationUrl.trim(),
+      destinationLabel: input.destinationLabel?.trim() || undefined,
+      pixKey: input.pixKey?.trim() || undefined,
+      pixReceiverName: input.pixReceiverName?.trim() || undefined,
+      pixCity: input.pixCity?.trim() || undefined,
     };
     const error = validateTagInput(normalized);
     if (error) {
@@ -140,6 +156,14 @@ export class LocalTagsService {
       !Number.isNaN(Date.parse(tag['createdAt'])) &&
       !Number.isNaN(Date.parse(tag['updatedAt'])) &&
       isNfcTagType(tag['type']) &&
+      (tag['publicUrl'] === undefined || typeof tag['publicUrl'] === 'string') &&
+      (tag['managementToken'] === undefined || typeof tag['managementToken'] === 'string') &&
+      (tag['qrCodeDataUri'] === undefined || typeof tag['qrCodeDataUri'] === 'string') &&
+      (tag['active'] === undefined || typeof tag['active'] === 'boolean') &&
+      (tag['destinationLabel'] === undefined || typeof tag['destinationLabel'] === 'string') &&
+      (tag['pixKey'] === undefined || typeof tag['pixKey'] === 'string') &&
+      (tag['pixReceiverName'] === undefined || typeof tag['pixReceiverName'] === 'string') &&
+      (tag['pixCity'] === undefined || typeof tag['pixCity'] === 'string') &&
       validateTagInput({
         name: tag['name'],
         type: tag['type'],

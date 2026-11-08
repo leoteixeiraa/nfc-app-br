@@ -1,17 +1,19 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
 import {
-  buildDestinationUrl,
-  destinationToFormValue,
-  isNfcTagType,
-  NAME_MAX_LENGTH,
-  NFC_TAG_TYPES,
+  NfcTag,
+  NfcTagInput,
   NfcTagType,
+  tagTypeLabel,
   validateDestinationUrl,
   validateTagName,
 } from '../../../core/tags/nfc-tag';
+import { PixPreview, PlaceResult, TagsApiService } from '../../../core/tags/tags-api.service';
 import { ButtonComponent } from '../../../shared/components/ui/button/button.component';
 import { InputDirective } from '../../../shared/components/ui/input/input.directive';
 
@@ -26,23 +28,83 @@ const FIELD_CLASSES =
 })
 export class TagFormComponent {
   private readonly localTags = inject(LocalTagsService);
+  private readonly tagsApi = inject(TagsApiService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
-  readonly types = NFC_TAG_TYPES;
-  readonly nameMaxLength = NAME_MAX_LENGTH;
   readonly fieldClasses = FIELD_CLASSES;
+  readonly typeLabel = tagTypeLabel;
   readonly submitError = signal('');
   readonly notFound = signal(false);
+  readonly isSaving = signal(false);
+  readonly isSearching = signal(false);
+  readonly searchError = signal('');
+  readonly results = signal<PlaceResult[]>([]);
+  readonly selectedPlace = signal<PlaceResult | null>(null);
+  readonly manualGoogle = signal(false);
+  readonly reviewMode = signal(false);
+  readonly createdTag = signal<NfcTag | null>(null);
+  readonly pixPreview = signal<PixPreview | null>(null);
   readonly tagId: string | null = inject(ActivatedRoute).snapshot.paramMap.get('id');
+  private managementToken = '';
+  private idempotencyKey = '';
+  private legacyTagId: string | null = null;
 
   readonly form = inject(FormBuilder).nonNullable.group({
     name: ['', [Validators.required, (control: AbstractControl) => this.nameValidator(control)]],
     type: ['google-review' as NfcTagType, Validators.required],
     destination: ['', [(control: AbstractControl) => this.destinationValidator(control)]],
+    placeSearch: [''],
+    pixKey: [''],
+    pixCity: [''],
   });
 
   constructor() {
-    this.form.controls.type.valueChanges.subscribe(() => this.form.controls.destination.updateValueAndValidity());
+    this.form.controls.type.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((type) => {
+      this.form.controls.destination.updateValueAndValidity();
+      const selectedName = this.selectedPlace()?.name;
+      if (selectedName && selectedName === this.form.controls.name.value) {
+        this.form.controls.name.setValue('');
+      }
+      this.results.set([]);
+      this.selectedPlace.set(null);
+      this.searchError.set('');
+      this.manualGoogle.set(false);
+      if (type !== 'pix') {
+        this.form.controls.pixKey.markAsUntouched();
+        this.form.controls.pixCity.markAsUntouched();
+      }
+    });
+
+    this.form.controls.placeSearch.valueChanges
+      .pipe(
+        debounceTime(400),
+        distinctUntilChanged(),
+        switchMap((query) => {
+          const value = query.trim();
+          this.results.set([]);
+          this.searchError.set('');
+          if (value.length < 3 || this.form.controls.type.value !== 'google-review' || this.manualGoogle()) {
+            this.isSearching.set(false);
+            return of([]);
+          }
+          this.isSearching.set(true);
+          return this.tagsApi.searchPlaces(value).pipe(
+            catchError((error: unknown) => {
+              this.searchError.set(this.messageFrom(error, 'Não foi possível pesquisar no Google.'));
+              return of([]);
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((places) => {
+        this.isSearching.set(false);
+        this.results.set(places);
+        if (places.length === 0 && this.form.controls.placeSearch.value.trim().length >= 3 && !this.searchError()) {
+          this.searchError.set('Nenhuma empresa encontrada. Tente outro nome ou insira o link manualmente.');
+        }
+      });
 
     if (this.tagId) {
       this.loadTag(this.tagId);
@@ -53,32 +115,24 @@ export class TagFormComponent {
     return this.tagId !== null;
   }
 
-  get isWhatsapp(): boolean {
-    return this.form.controls.type.value === 'whatsapp';
+  get type(): NfcTagType {
+    return this.form.controls.type.value;
+  }
+
+  get isPix(): boolean {
+    return this.type === 'pix';
+  }
+
+  get isGoogleReview(): boolean {
+    return this.type === 'google-review';
   }
 
   get destinationLabel(): string {
-    return this.isWhatsapp ? 'Número do WhatsApp (com DDI)' : 'URL de destino (HTTPS)';
+    return this.type === 'whatsapp' ? 'Número do WhatsApp (com DDI)' : 'URL de destino (HTTPS)';
   }
 
   get destinationPlaceholder(): string {
-    switch (this.form.controls.type.value) {
-      case 'whatsapp':
-        return '5511999999999';
-      case 'google-review':
-        return 'https://g.page/r/.../review';
-      case 'pix':
-        return 'https://link-de-pagamento.exemplo/pix';
-      default:
-        return 'https://exemplo.com.br';
-    }
-  }
-
-  onTypeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (isNfcTagType(value)) {
-      this.form.controls.type.setValue(value);
-    }
+    return this.type === 'whatsapp' ? '5511999999999' : 'https://exemplo.com.br';
   }
 
   showError(name: 'name' | 'destination'): string | null {
@@ -86,32 +140,186 @@ export class TagFormComponent {
     return control.touched && control.errors ? (control.errors['message'] as string) : null;
   }
 
-  save(): void {
-    this.submitError.set('');
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+  selectType(type: NfcTagType): void {
+    this.form.controls.type.setValue(type);
+    this.form.controls.destination.setValue('');
+    this.form.controls.placeSearch.setValue('');
+  }
 
-    const { name, type, destination } = this.form.getRawValue();
-    const input = { name, type, destinationUrl: buildDestinationUrl(type, destination) };
-
-    try {
-      if (this.tagId) {
-        this.localTags.update(this.tagId, input);
-      } else {
-        this.localTags.create(input);
-      }
-    } catch (error) {
-      this.submitError.set(
-        error instanceof LocalTagsError ? error.message : 'Não foi possível salvar a placa. Tente novamente.',
-      );
-      return;
-    }
-
-    void this.router.navigate(['/'], {
-      state: { notice: this.tagId ? 'Placa atualizada com sucesso.' : 'Placa criada com sucesso.' },
+  choosePlace(place: PlaceResult): void {
+    this.isSearching.set(true);
+    this.searchError.set('');
+    this.tagsApi.reviewLink(place.placeId).subscribe({
+      next: (url) => {
+        this.isSearching.set(false);
+        this.selectedPlace.set(place);
+        this.form.controls.name.setValue(place.name);
+        this.form.controls.destination.setValue(url);
+        this.results.set([]);
+      },
+      error: (error: unknown) => {
+        this.isSearching.set(false);
+        this.searchError.set(this.messageFrom(error, 'Não foi possível obter o link de avaliação.'));
+      },
     });
+  }
+
+  switchToManualGoogle(): void {
+    this.manualGoogle.set(true);
+    this.results.set([]);
+    this.selectedPlace.set(null);
+    this.form.controls.name.setValue('');
+    this.form.controls.placeSearch.setValue('');
+    this.form.controls.destination.setValue('');
+  }
+
+  useGoogleSearch(): void {
+    this.manualGoogle.set(false);
+    this.selectedPlace.set(null);
+    this.form.controls.destination.setValue('');
+  }
+
+  continueToReview(): void {
+    this.submitError.set('');
+    const { name, type, destination, pixKey, pixCity } = this.form.getRawValue();
+    const invalidName = validateTagName(name);
+    if (invalidName) {
+      this.form.controls.name.markAsTouched();
+      this.submitError.set(invalidName);
+      return;
+    }
+    if (type === 'pix') {
+      if (name.trim().length > 25) {
+        this.form.controls.name.markAsTouched();
+        this.submitError.set('O nome do estabelecimento deve ter até 25 caracteres para o Pix.');
+        return;
+      }
+      if (!pixKey.trim() || !pixCity.trim()) {
+        this.form.controls.pixKey.markAsTouched();
+        this.form.controls.pixCity.markAsTouched();
+        this.submitError.set('Preencha o nome do estabelecimento, a chave Pix e a cidade.');
+        return;
+      }
+    } else {
+      const error = validateDestinationUrl(type, destination.trim());
+      if (error) {
+        this.form.controls.destination.markAsTouched();
+        this.submitError.set(error);
+        return;
+      }
+    }
+    if (type === 'pix') {
+      this.isSaving.set(true);
+      this.tagsApi.previewPix(pixKey, name.trim(), pixCity).subscribe({
+        next: (preview) => {
+          this.pixPreview.set(preview);
+          this.isSaving.set(false);
+          this.reviewMode.set(true);
+        },
+        error: (error: unknown) => {
+          this.isSaving.set(false);
+          this.submitError.set(this.messageFrom(error, 'Não foi possível gerar o código Pix.'));
+        },
+      });
+      return;
+    }
+    this.reviewMode.set(true);
+  }
+
+  backToForm(): void {
+    this.reviewMode.set(false);
+    this.submitError.set('');
+  }
+
+  publish(): void {
+    if (this.isSaving()) {
+      return;
+    }
+    this.submitError.set('');
+    this.isSaving.set(true);
+    const input = this.toInput();
+    const isRemoteEdit = Boolean(this.tagId && this.managementToken);
+    if (!this.managementToken) {
+      this.managementToken = this.randomToken();
+    }
+    if (!isRemoteEdit && !this.idempotencyKey) {
+      this.idempotencyKey = crypto.randomUUID();
+    }
+
+    const request = isRemoteEdit
+      ? this.tagsApi.update(this.tagId!, input, this.managementToken)
+      : this.tagsApi.create(input, this.managementToken, this.idempotencyKey);
+    request.subscribe({
+      next: (tag) => {
+        if (this.legacyTagId) {
+          try {
+            this.localTags.remove(this.legacyTagId);
+          } catch (error) {
+            this.submitError.set(error instanceof LocalTagsError ? error.message : 'A placa foi publicada, mas o rascunho antigo não foi removido.');
+          }
+        }
+        this.createdTag.set(tag);
+        this.isSaving.set(false);
+      },
+      error: (error: unknown) => {
+        this.submitError.set(this.messageFrom(error, 'Não foi possível publicar a placa. Tente novamente.'));
+        this.isSaving.set(false);
+      },
+    });
+  }
+
+  async copyLink(tag: NfcTag): Promise<void> {
+    if (!tag.publicUrl) {
+      this.submitError.set('Esta placa antiga ainda não possui um link público.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(tag.publicUrl);
+    } catch {
+      this.submitError.set('Não foi possível copiar o link. Verifique a permissão do navegador.');
+    }
+  }
+
+  async copyValue(value: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      this.submitError.set('Não foi possível copiar o código. Verifique a permissão do navegador.');
+    }
+  }
+
+  testDestination(): void {
+    const url = this.form.controls.destination.value.trim();
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  downloadQr(tag: NfcTag): void {
+    if (!tag.qrCodeDataUri) {
+      this.submitError.set('O QR Code desta placa não está disponível.');
+      return;
+    }
+    const anchor = document.createElement('a');
+    anchor.href = tag.qrCodeDataUri;
+    anchor.download = `nfc-app-${tag.id}.svg`;
+    anchor.click();
+  }
+
+  private toInput(): NfcTagInput {
+    const values = this.form.getRawValue();
+    const type = values.type;
+    const digits = values.destination.trim().replace(/[\s().+-]/g, '');
+    const destinationUrl = type === 'whatsapp' ? `https://wa.me/${digits}` : values.destination.trim();
+    return {
+      name: values.name.trim(),
+      type,
+      destinationUrl: type === 'pix' ? '' : destinationUrl,
+      destinationLabel: type === 'google-review' ? this.selectedPlace()?.name : undefined,
+      pixKey: type === 'pix' ? values.pixKey.trim() : undefined,
+      pixReceiverName: type === 'pix' ? values.name.trim() : undefined,
+      pixCity: type === 'pix' ? values.pixCity.trim() : undefined,
+    };
   }
 
   private loadTag(id: string): void {
@@ -121,11 +329,26 @@ export class TagFormComponent {
         this.notFound.set(true);
         return;
       }
-      this.form.setValue({
-        name: tag.name,
-        type: tag.type,
-        destination: destinationToFormValue(tag.type, tag.destinationUrl),
+      const legacyPix = tag.type === 'pix' && !tag.pixKey;
+      this.form.patchValue({
+        name: tag.type === 'pix' ? tag.pixReceiverName ?? tag.name : tag.destinationLabel ?? tag.name,
+        type: legacyPix ? 'url' : tag.type,
+        destination: legacyPix
+          ? tag.destinationUrl
+          : tag.type === 'pix'
+            ? ''
+            : tag.type === 'whatsapp'
+              ? tag.destinationUrl.replace('https://wa.me/', '')
+              : tag.destinationUrl,
+        pixKey: tag.pixKey ?? '',
+        pixCity: tag.pixCity ?? '',
       });
+      this.managementToken = tag.managementToken ?? '';
+      this.legacyTagId = tag.managementToken ? null : tag.id;
+      if (tag.type === 'google-review' && tag.destinationLabel) {
+        this.selectedPlace.set({ placeId: '', name: tag.destinationLabel, address: '' });
+        this.manualGoogle.set(true);
+      }
     } catch (error) {
       this.notFound.set(true);
       this.submitError.set(error instanceof LocalTagsError ? error.message : 'Não foi possível carregar a placa.');
@@ -139,7 +362,27 @@ export class TagFormComponent {
 
   private destinationValidator(control: AbstractControl): ValidationErrors | null {
     const type = this.form?.controls.type.value ?? 'google-review';
-    const message = validateDestinationUrl(type, buildDestinationUrl(type, String(control.value ?? '')));
+    if (type === 'pix') {
+      return null;
+    }
+    const destination = String(control.value ?? '').trim();
+    const message = validateDestinationUrl(type, type === 'whatsapp' ? `https://wa.me/${destination}` : destination);
     return message ? { message } : null;
+  }
+
+  private randomToken(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  private messageFrom(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 429) {
+        return 'Muitas buscas em pouco tempo. Aguarde um instante e tente novamente.';
+      }
+      const detail = error.error?.detail ?? error.error?.message;
+      return typeof detail === 'string' ? detail : fallback;
+    }
+    return error instanceof Error ? error.message : fallback;
   }
 }

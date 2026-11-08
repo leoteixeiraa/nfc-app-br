@@ -23,6 +23,8 @@
         class="size-full object-cover rounded-lg"
         width="44"
         height="44"
+        referrerpolicy="no-referrer"
+        (error)="$any($event.target).src = '/images/user/owner.png'"
       />
     </span>
 

@@ -1,6 +1,6 @@
 # NFC.APP
 
-Fundação técnica da plataforma SaaS de gerenciamento de placas NFC. Este repositório inicia um monólito modular e deliberadamente não contém funcionalidades de negócio.
+Plataforma SaaS para criar e gerenciar placas NFC, com redirecionamento público persistente e gerenciamento anônimo no mesmo navegador.
 
 ## Stack
 
@@ -29,7 +29,8 @@ compose.prod.yml          Sobrescritas para HTTPS/wildcard
 ## Configuração e inicialização local
 
 1. Copie `.env.example` para `.env` e substitua `POSTGRES_PASSWORD` por uma senha aleatória forte. O `.env` não é versionado.
-2. Na raiz do projeto, execute:
+2. Para publicar links em produção, configure `APP_DOMAIN` com o domínio HTTPS público; `compose.prod.yml` usa `https://APP_DOMAIN` como origem dos links NFC.APP. Para habilitar a busca de estabelecimentos, configure `GOOGLE_PLACES_API_KEY` com uma chave restrita à Google Places API (New). Sem essa chave, o formulário continua aceitando links de avaliação inseridos manualmente.
+3. Na raiz do projeto, execute:
 
 ```sh
 docker compose up -d --build
@@ -49,6 +50,12 @@ PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva 
 - Parar/remover containers e rede, preservando banco: `docker compose down`
 
 A migração inicial Flyway é aplicada automaticamente ao iniciar o backend. Hibernate está em `ddl-auto: validate`; criação/alteração futura de esquema deve ocorrer exclusivamente por novas migrações Flyway.
+
+## Placas NFC
+
+Placas anônimas são publicadas no backend e persistidas no PostgreSQL. O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. Limpar os dados do navegador ou mudar de dispositivo remove o acesso local de gerenciamento, mas não invalida a placa pública. Ainda não há exportação nem associação de placas anônimas a uma conta.
+
+O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
 
 ## Desenvolvimento e testes
 

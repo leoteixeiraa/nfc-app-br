@@ -47,5 +47,8 @@ management:
 app:
   firebase:
     project-id: ${FIREBASE_PROJECT_ID}
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost}
+  google-places:
+    api-key: ${GOOGLE_PLACES_API_KEY:}
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost}

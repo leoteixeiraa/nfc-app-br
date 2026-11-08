@@ -7,12 +7,24 @@ export interface NfcTag {
   destinationUrl: string;
   createdAt: string;
   updatedAt: string;
+  destinationLabel?: string;
+  pixKey?: string;
+  pixReceiverName?: string;
+  pixCity?: string;
+  publicUrl?: string;
+  managementToken?: string;
+  qrCodeDataUri?: string;
+  active?: boolean;
 }
 
 export interface NfcTagInput {
   name: string;
   type: NfcTagType;
   destinationUrl: string;
+  destinationLabel?: string;
+  pixKey?: string;
+  pixReceiverName?: string;
+  pixCity?: string;
 }
 
 export const NFC_TAG_TYPES: readonly { value: NfcTagType; label: string }[] = [
@@ -62,6 +74,12 @@ export function validateTagName(name: string): string | null {
 }
 
 export function validateDestinationUrl(type: NfcTagType, destinationUrl: string): string | null {
+  if (type === 'pix') {
+    if (/^000201[\s\S]+6304[A-Fa-f0-9]{4}$/.test(destinationUrl)) {
+      return null;
+    }
+  }
+
   if (type === 'whatsapp') {
     return WHATSAPP_URL_PATTERN.test(destinationUrl)
       ? null

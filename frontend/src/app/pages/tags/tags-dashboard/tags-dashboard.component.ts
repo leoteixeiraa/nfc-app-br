@@ -2,7 +2,8 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
-import { NfcTag, tagTypeLabel } from '../../../core/tags/nfc-tag';
+import { NfcTag, NfcTagInput, tagTypeLabel } from '../../../core/tags/nfc-tag';
+import { TagsApiService } from '../../../core/tags/tags-api.service';
 import { ButtonComponent } from '../../../shared/components/ui/button/button.component';
 
 @Component({
@@ -13,6 +14,7 @@ import { ButtonComponent } from '../../../shared/components/ui/button/button.com
 })
 export class TagsDashboardComponent {
   private readonly localTags = inject(LocalTagsService);
+  private readonly tagsApi = inject(TagsApiService);
 
   readonly tags = signal<NfcTag[]>([]);
   readonly loadError = signal('');
@@ -30,9 +32,25 @@ export class TagsDashboardComponent {
   }
 
   duplicate(tag: NfcTag): void {
-    this.runAction(() => {
-      this.localTags.duplicate(tag.id);
-      return 'Placa duplicada com sucesso.';
+    this.actionError.set('');
+    this.notice.set('');
+    const type = tag.type === 'pix' && !tag.pixKey ? 'url' : tag.type;
+    const input: NfcTagInput = {
+      name: tag.name,
+      type,
+      destinationUrl: type === 'pix' ? '' : tag.destinationUrl,
+      destinationLabel: tag.destinationLabel,
+      pixKey: tag.pixKey,
+      pixReceiverName: tag.pixReceiverName,
+      pixCity: tag.pixCity,
+    };
+    const token = this.randomToken();
+    this.tagsApi.create(input, token, crypto.randomUUID()).subscribe({
+      next: () => {
+        this.notice.set('Placa duplicada com um novo link público.');
+        this.reload();
+      },
+      error: (error: unknown) => this.actionError.set(this.messageFrom(error)),
     });
   }
 
@@ -50,19 +68,43 @@ export class TagsDashboardComponent {
       return;
     }
     this.tagPendingRemoval.set(null);
-    this.runAction(() => {
+    this.actionError.set('');
+    this.notice.set('');
+    if (tag.managementToken) {
+      this.tagsApi.deactivate(tag).subscribe({
+        next: () => {
+          this.notice.set('Placa desativada e removida da listagem.');
+          this.reload();
+        },
+        error: (error: unknown) => this.actionError.set(this.messageFrom(error)),
+      });
+      return;
+    }
+    this.runLocalAction(() => {
       this.localTags.remove(tag.id);
-      return 'Placa excluída com sucesso.';
+      return 'Placa local removida deste navegador.';
     });
+  }
+
+  async copyLink(tag: NfcTag): Promise<void> {
+    if (!tag.publicUrl) {
+      this.actionError.set('Esta placa antiga ainda não possui um link público. Edite-a para publicar.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(tag.publicUrl);
+      this.actionError.set('');
+      this.notice.set('Link público copiado.');
+    } catch {
+      this.actionError.set('Não foi possível copiar o link. Verifique a permissão do navegador.');
+    }
   }
 
   dismissNotice(): void {
     this.notice.set('');
   }
 
-  private runAction(action: () => string): void {
-    this.actionError.set('');
-    this.notice.set('');
+  private runLocalAction(action: () => string): void {
     try {
       this.notice.set(action());
     } catch (error) {
@@ -82,6 +124,23 @@ export class TagsDashboardComponent {
   }
 
   private messageFrom(error: unknown): string {
-    return error instanceof LocalTagsError ? error.message : 'Ocorreu um erro inesperado. Tente novamente.';
+    if (error instanceof LocalTagsError) {
+      return error.message;
+    }
+    if (typeof error === 'object' && error !== null && 'error' in error) {
+      const body = (error as { error?: { detail?: unknown; message?: unknown } }).error;
+      if (typeof body?.detail === 'string') {
+        return body.detail;
+      }
+      if (typeof body?.message === 'string') {
+        return body.message;
+      }
+    }
+    return error instanceof Error ? error.message : 'Ocorreu um erro inesperado. Tente novamente.';
+  }
+
+  private randomToken(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 }

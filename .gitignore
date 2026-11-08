@@ -1,4 +1,5 @@
 # Environment secrets
+senha-banco.txt
 .env
 .env.*
 !.env.example

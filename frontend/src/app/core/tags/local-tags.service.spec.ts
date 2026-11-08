@@ -39,7 +39,7 @@ describe('LocalTagsService', () => {
     const tag = service.create(input);
     const copy = service.duplicate(tag.id);
     expect(copy.id).not.toBe(tag.id);
-    expect(copy.name).toBe('Balcão (cópia)');
+    expect(copy.name).toBe('Balcão');
     service.remove(tag.id);
     expect(service.list().map((t) => t.id)).toEqual([copy.id]);
   });
