@@ -1,0 +1,64 @@
+<section class="mx-auto max-w-3xl space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 dark:border-gray-800 dark:bg-white/3">
+  <div>
+    <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Gravar placa NFC</h1>
+    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Gerar link → Gravar NFC → Testar placa → Concluir</p>
+  </div>
+
+  @if (loading()) {
+    <p role="status" class="text-sm text-gray-500">Confirmando o link da placa no servidor...</p>
+  } @else if (configuration(); as config) {
+    <div class="space-y-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
+      <p class="font-medium text-gray-800 dark:text-white/90">{{ config.name }}</p>
+      <p class="break-all text-sm text-brand-500">{{ config.publicUrl }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">Este é o link dinâmico NFC.APP, não o endereço final do destino.</p>
+    </div>
+
+    @if (device === 'computer') {
+      <div class="flex flex-col items-center gap-4 rounded-xl bg-gray-50 p-5 text-center dark:bg-gray-800">
+        <img [src]="config.continuationQrCodeDataUri" alt="QR Code para continuar a gravação no celular" class="h-52 w-52" />
+        <p class="text-sm text-gray-600 dark:text-gray-400">Leia este QR Code com o celular para gravar e testar esta placa.</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">A edição e a desativação continuam disponíveis apenas no navegador original. Não compartilhe o QR Code com desconhecidos.</p>
+        @if (config.publicUrl.startsWith('http://localhost') || config.publicUrl.startsWith('http://127.0.0.1') || config.publicUrl.startsWith('http://[::1]')) {
+          <p role="status" class="text-xs text-warning-600 dark:text-warning-400">Um endereço localhost não abre esta instalação em outro dispositivo. Use um domínio HTTPS acessível pelo celular.</p>
+        }
+      </div>
+    } @else if (device === 'iphone') {
+      <p class="text-sm text-gray-600 dark:text-gray-400">No iPhone, copie o link e use um aplicativo NFC para gravá-lo como URL. Depois, aproxime o iPhone da placa para testar.</p>
+      <button app-button type="button" (click)="copy()">Copiar link</button>
+    } @else if (!supported) {
+      <p class="text-sm text-gray-600 dark:text-gray-400">A gravação Web NFC não está disponível. Ative o NFC, use HTTPS e abra esta página no Chrome para Android compatível. Também é possível copiar o link e usar um aplicativo NFC.</p>
+      <button app-button type="button" (click)="copy()">Copiar link</button>
+    } @else {
+      @if (confirmOverwrite()) {
+        <div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-50 p-4 dark:bg-warning-500/10">
+          <p class="text-sm text-gray-700 dark:text-gray-300">A gravação substituirá o conteúdo existente do cartão. A placa não será bloqueada permanentemente.</p>
+          <div class="flex flex-wrap gap-3">
+            <button app-button type="button" (click)="write()">Confirmar e aproximar placa</button>
+            <button app-button variant="outline" type="button" (click)="confirmOverwrite.set(false)">Cancelar</button>
+          </div>
+        </div>
+      } @else if (state() === 'waiting' || state() === 'starting' || state() === 'reading') {
+        <button app-button variant="outline" type="button" (click)="cancel()">Cancelar operação</button>
+      } @else {
+        <div class="flex flex-wrap gap-3">
+          <button app-button type="button" (click)="confirmOverwrite.set(true)">{{ state() === 'success' ? 'Gravar novamente' : 'Gravar placa NFC' }}</button>
+          <button app-button variant="outline" type="button" (click)="read()">Verificar por leitura NFC</button>
+        </div>
+      }
+    }
+
+    @if (message()) {
+      <p [attr.role]="state() === 'error' ? 'alert' : 'status'" class="text-sm"
+        [class]="state() === 'error' ? 'text-error-500' : 'text-gray-600 dark:text-gray-400'">{{ message() }}</p>
+    }
+    <div class="flex flex-wrap gap-3">
+      <a app-button variant="outline" [href]="config.publicUrl" target="_blank" rel="noopener noreferrer">Testar placa</a>
+      <a app-button variant="outline" routerLink="/">Concluir</a>
+    </div>
+  } @else {
+    @if (message()) {
+      <p role="alert" class="text-sm text-error-500">{{ message() }}</p>
+    }
+    <button app-button variant="outline" type="button" (click)="load()">Tentar novamente</button>
+  }
+</section>

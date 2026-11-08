@@ -72,6 +72,7 @@
               <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'edit']">Editar</a>
               <button app-button variant="outline" size="sm" type="button" (click)="duplicate(tag)">Duplicar</button>
               @if (tag.publicUrl) {
+                <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'write']">Gravar NFC</a>
                 <a app-button variant="outline" size="sm" [href]="tag.publicUrl" target="_blank" rel="noopener noreferrer">Testar</a>
                 <button app-button variant="outline" size="sm" type="button" (click)="copyLink(tag)">Copiar link</button>
               }

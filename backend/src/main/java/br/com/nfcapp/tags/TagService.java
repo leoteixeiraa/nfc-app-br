@@ -157,6 +157,18 @@ public class TagService {
         }, code);
     }
 
+    public WriteConfiguration writeConfiguration(String code) {
+        if (code == null || !code.matches("[A-Za-z0-9_-]{24}")) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Esta placa não existe ou foi desativada.");
+        }
+        PublicDestination destination = findPublicDestination(code);
+        if (!"pix".equals(destination.type())) {
+            validateDestination(destination.type(), destination.target());
+        }
+        String continuationUrl = publicBaseUrl + "/tags/" + code + "/write";
+        return new WriteConfiguration(destination.name(), publicUrl(code), qrCodeService.toDataUri(continuationUrl));
+    }
+
     public static void validateDestination(String type, String destination) {
         if (destination == null || destination.length() > 2048) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe um destino válido.");
@@ -300,5 +312,8 @@ public class TagService {
     }
 
     public record PublicDestination(String type, String name, String target) {
+    }
+
+    public record WriteConfiguration(String name, String publicUrl, String continuationQrCodeDataUri) {
     }
 }

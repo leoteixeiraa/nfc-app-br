@@ -1,10 +1,13 @@
 <div class="mx-auto max-w-3xl">
   @if (createdTag(); as published) {
+    @if (writingTag()) {
+      <app-tag-write [code]="published.id" />
+    } @else {
     <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 dark:border-gray-800 dark:bg-white/3">
       <div>
         <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Placa criada com sucesso</h1>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Grave este link na sua placa NFC utilizando um aplicativo compatível. Depois, aproxime o celular para testar.
+          O link foi gerado. Continue para gravar e testar sua placa NFC.
         </p>
       </div>
       <div class="flex flex-col items-center gap-5 rounded-xl bg-gray-50 p-5 dark:bg-gray-800 sm:flex-row">
@@ -24,6 +27,7 @@
         <p role="alert" class="text-sm text-error-500">{{ submitError() }}</p>
       }
       <div class="flex flex-wrap gap-3">
+        <button app-button type="button" (click)="writingTag.set(true)">Gravar placa NFC</button>
         <button app-button type="button" (click)="copyLink(published)">Copiar link</button>
         <button app-button variant="outline" type="button" (click)="downloadQr(published)">Baixar QR Code</button>
         <a app-button variant="outline" [href]="published.publicUrl" target="_blank" rel="noopener noreferrer">
@@ -32,6 +36,7 @@
         <a app-button variant="outline" routerLink="/">Voltar para minhas placas</a>
       </div>
     </section>
+    }
   } @else if (notFound()) {
     <div role="alert" class="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">
       <p>{{ submitError() || 'Placa não encontrada neste navegador.' }}</p>
@@ -124,9 +129,45 @@
       @if (isGoogleReview) {
         @if (selectedPlace(); as place) {
           <div class="rounded-xl border border-success-500/30 bg-success-50 p-4 dark:bg-success-500/10">
+            @if (place.photoUrl) {
+              <img [src]="place.photoUrl" [alt]="'Foto de ' + place.name"
+                class="mb-4 h-40 w-full rounded-lg object-cover" loading="lazy" />
+              @for (attribution of place.photoAttributions ?? []; track attribution.uri || attribution.displayName) {
+                <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                  Foto:
+                  @if (attribution.uri) {
+                    <a [href]="attribution.uri" target="_blank" rel="noopener noreferrer" class="underline">
+                      {{ attribution.displayName }}
+                    </a>
+                  } @else {
+                    {{ attribution.displayName }}
+                  }
+                </p>
+              }
+            }
             <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ place.name }}</p>
             @if (place.address) {
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ place.address }}</p>
+            }
+            @if (place.rating !== null && place.rating !== undefined) {
+              <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                ★ {{ place.rating }}
+                @if (place.userRatingCount !== null && place.userRatingCount !== undefined) {
+                  · {{ place.userRatingCount }} avaliações
+                }
+              </p>
+            } @else if (place.userRatingCount !== null && place.userRatingCount !== undefined) {
+              <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                {{ place.userRatingCount }} avaliações
+              </p>
+            }
+            @if (place.googleMapsUrl) {
+              <a [href]="place.googleMapsUrl" target="_blank" rel="noopener noreferrer"
+                class="mt-2 inline-block text-xs text-brand-500 underline">
+                Google Maps
+              </a>
+            } @else {
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Informações do Google Maps</p>
             }
             <button type="button" class="mt-3 text-xs font-medium text-brand-500 underline" (click)="useGoogleSearch()">
               Alterar estabelecimento
@@ -144,13 +185,20 @@
               <ul class="divide-y divide-gray-200 rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                 @for (place of results(); track place.placeId) {
                   <li>
-                    <button type="button" class="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800" (click)="choosePlace(place)">
+                    <button type="button" [disabled]="isLoadingPlaceDetails()"
+                      class="w-full p-3 text-left hover:bg-gray-50 disabled:opacity-50 dark:hover:bg-gray-800"
+                      (click)="choosePlace(place)">
                       <span class="block text-sm font-medium text-gray-800 dark:text-white/90">{{ place.name }}</span>
                       <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ place.address }}</span>
                     </button>
                   </li>
                 }
               </ul>
+            }
+            @if (isLoadingPlaceDetails()) {
+              <p role="status" class="text-xs text-gray-500 dark:text-gray-400">
+                Carregando informações do estabelecimento...
+              </p>
             }
             @if (searchError()) {
               <p role="status" class="text-xs text-gray-500 dark:text-gray-400">{{ searchError() }}</p>

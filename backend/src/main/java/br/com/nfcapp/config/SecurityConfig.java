@@ -25,7 +25,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/status", "/api/auth/csrf",
                                 "/actuator/health", "/actuator/health/**", "/error",
-                                "/api/places/search", "/api/places/*/review-link",
+                                "/api/places/search", "/api/places/*/details", "/api/places/*/review-link",
                                 "/api/tags/public/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/session").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/tags").permitAll()

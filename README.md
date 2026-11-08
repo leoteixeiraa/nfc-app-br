@@ -57,6 +57,10 @@ Placas anônimas são publicadas no backend e persistidas no PostgreSQL. O ident
 
 O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
 
+Após criar uma placa, escolha **Gravar placa NFC**. Em Android com navegador compatível e NFC habilitado, a Web NFC grava o link dinâmico após confirmação; cartões bloqueados ou incompatíveis não podem ser gravados. O iPhone requer um aplicativo NFC. No computador, o QR Code abre a gravação no celular sem transferir a credencial de gerenciamento ou adicionar a placa ao armazenamento local do celular. Qualquer pessoa com esse QR Code pode gravar e testar o link público; não o compartilhe com desconhecidos. O link precisa estar ativo no backend. Teste o destino e, quando disponível, verifique o conteúdo por leitura NFC.
+
+A Web NFC exige um contexto seguro. Em produção, configure `APP_DOMAIN` para o domínio HTTPS público correto. Endereços `localhost` são úteis para desenvolvimento local, mas não permitem continuar pelo celular, pois apontam para o próprio dispositivo.
+
 ## Desenvolvimento e testes
 
 Frontend:

@@ -58,6 +58,26 @@ class TagControllerTest {
     }
 
     @Test
+    void placeDetailsReturnsGoogleBusinessInformation() {
+        GooglePlacesService.PlaceDetails details = new GooglePlacesService.PlaceDetails(
+                "ChIJ1c1tFFhRzpQRUeF4fDi9RFs",
+                "Padoca da Praça",
+                "Praça Central",
+                4.7,
+                128,
+                "https://lh3.googleusercontent.com/photo",
+                java.util.List.of(new GooglePlacesService.PhotoAttribution("Autor", "https://maps.google.com/")),
+                "https://www.google.com/maps/place/",
+                "https://search.google.com/local/writereview?placeid=example");
+        when(places.details(details.placeId())).thenReturn(details);
+
+        assertEquals(
+                details,
+                controller.placeDetails(details.placeId(), new MockHttpServletRequest()));
+        verify(places).details(details.placeId());
+    }
+
+    @Test
     void updateAndDeactivateRequireAndForwardTheManagementCredential() {
         TagService.TagRequest request = request("Recepção", "https://example.com/novo");
         when(tags.update(eq("public-code-a"), eq(request), eq("management-token")))
@@ -108,6 +128,19 @@ class TagControllerTest {
 
         assertEquals(HttpStatus.NOT_FOUND, result.getStatusCode());
         assertTrue(result.getBody().contains("Esta placa não está disponível"));
+    }
+
+    @Test
+    void writeConfigurationIsNotCachedAndContainsNoManagementCredential() {
+        var configuration = new TagService.WriteConfiguration(
+                "Balcão", "https://nfc.app.br/t/public-code", "data:image/svg+xml;base64,qr");
+        when(tags.writeConfiguration("public-code")).thenReturn(configuration);
+
+        var result = controller.writeConfiguration("public-code", new MockHttpServletRequest());
+
+        assertEquals(configuration, result.getBody());
+        assertTrue(result.getHeaders().getCacheControl().contains("no-store"));
+        verify(tags).writeConfiguration("public-code");
     }
 
     private TagService.TagRequest request(String name, String destination) {

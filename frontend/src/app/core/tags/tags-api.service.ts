@@ -25,11 +25,31 @@ export interface PlaceResult {
   placeId: string;
   name: string;
   address: string;
+  rating?: number | null;
+  userRatingCount?: number | null;
+  photoUrl?: string | null;
+  photoAttributions?: Array<{ displayName: string; uri: string | null }>;
+  googleMapsUrl?: string | null;
+}
+
+export interface PlaceDetails extends PlaceResult {
+  rating: number | null;
+  userRatingCount: number | null;
+  photoUrl: string | null;
+  photoAttributions: Array<{ displayName: string; uri: string | null }>;
+  googleMapsUrl: string | null;
+  reviewUrl: string;
 }
 
 export interface PixPreview {
   payload: string;
   qrCodeDataUri: string;
+}
+
+export interface WriteConfiguration {
+  name: string;
+  publicUrl: string;
+  continuationQrCodeDataUri: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -83,16 +103,19 @@ export class TagsApiService {
     return this.http.get<PlaceResult[]>('/api/places/search', { params });
   }
 
-  reviewLink(placeId: string): Observable<string> {
+  placeDetails(placeId: string): Observable<PlaceDetails> {
     return this.http
-      .get<{ url: string }>(`/api/places/${encodeURIComponent(placeId)}/review-link`)
-      .pipe(map((response) => response.url));
+      .get<PlaceDetails>(`/api/places/${encodeURIComponent(placeId)}/details`);
   }
 
   previewPix(key: string, receiverName: string, city: string): Observable<PixPreview> {
     return this.fetchCsrf().pipe(
       switchMap(() => this.http.post<PixPreview>('/api/pix/payload', { key, receiverName, city })),
     );
+  }
+
+  writeConfiguration(id: string): Observable<WriteConfiguration> {
+    return this.http.get<WriteConfiguration>(`/api/tags/public/${encodeURIComponent(id)}/write`);
   }
 
   private fetchCsrf(): Observable<string> {

@@ -83,6 +83,17 @@ public class TagController {
         return places.search(q.trim());
     }
 
+    @GetMapping("/api/places/{placeId}/details")
+    public GooglePlacesService.PlaceDetails placeDetails(
+            @PathVariable String placeId,
+            HttpServletRequest servletRequest) {
+        limit(servletRequest, "places-details", 30, Duration.ofMinutes(1));
+        if (!placeId.matches("[A-Za-z0-9_-]{1,256}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estabelecimento inválido.");
+        }
+        return places.details(placeId);
+    }
+
     @GetMapping("/api/places/{placeId}/review-link")
     public ReviewLink reviewLink(@PathVariable String placeId, HttpServletRequest servletRequest) {
         limit(servletRequest, "places-link", 60, Duration.ofMinutes(1));
@@ -97,6 +108,15 @@ public class TagController {
         limit(servletRequest, "pix", 30, Duration.ofMinutes(1));
         String payload = pixPayloadService.createPayload(request.key(), request.receiverName(), request.city());
         return new PixPreview(payload, qrCodeService.toDataUri(payload));
+    }
+
+    @GetMapping("/api/tags/public/{code}/write")
+    public ResponseEntity<TagService.WriteConfiguration> writeConfiguration(
+            @PathVariable String code, HttpServletRequest request) {
+        limit(request, "resolve", 300, Duration.ofMinutes(1));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(tags.writeConfiguration(code));
     }
 
     @GetMapping("/t/{code}")

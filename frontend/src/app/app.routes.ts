@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { TagsDashboardComponent } from './pages/tags/tags-dashboard/tags-dashboard.component';
 import { TagFormComponent } from './pages/tags/tag-form/tag-form.component';
+import { TagWriteComponent } from './pages/tags/tag-write/tag-write.component';
 import { ProfileComponent } from './pages/profile/profile.component';
 import { FormElementsComponent } from './pages/forms/form-elements/form-elements.component';
 import { BasicTablesComponent } from './pages/tables/basic-tables/basic-tables.component';
@@ -36,6 +37,11 @@ export const routes: Routes = [
         path: 'tags/new',
         component: TagFormComponent,
         title: 'Nova placa | NFC.APP',
+      },
+      {
+        path: 'tags/:id/write',
+        component: TagWriteComponent,
+        title: 'Gravar placa | NFC.APP',
       },
       {
         path: 'tags/:id/edit',
