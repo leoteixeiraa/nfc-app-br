@@ -28,6 +28,7 @@ type NfcState = 'idle' | 'starting' | 'waiting' | 'reading' | 'success' | 'error
 })
 export class TagWriteComponent implements OnInit {
   @Input() code = '';
+  @Input() linkQrCodeDataUri?: string;
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(TagsApiService);
   private readonly destroyRef = inject(DestroyRef);
@@ -39,6 +40,7 @@ export class TagWriteComponent implements OnInit {
   readonly state = signal<NfcState>('idle');
   readonly message = signal('');
   readonly confirmOverwrite = signal(false);
+  readonly canInspectExisting = signal(false);
   readonly device = this.detectDevice();
   readonly supported = window.isSecureContext && this.device === 'android' && typeof this.readerConstructor() === 'function';
 
@@ -74,14 +76,15 @@ export class TagWriteComponent implements OnInit {
     });
   }
 
-  async write(): Promise<void> {
+  async write(overwrite = false): Promise<void> {
     const configuration = this.configuration();
     const Reader = this.readerConstructor();
-    if (!configuration || !this.supported || !Reader || !this.confirmOverwrite()) {
+    if (!configuration || !this.supported || !Reader || (overwrite && !this.confirmOverwrite())) {
       return;
     }
     this.confirmOverwrite.set(false);
     this.cancel();
+    this.canInspectExisting.set(false);
     const operation = new AbortController();
     this.operation = operation;
     const generation = this.generation;
@@ -90,7 +93,7 @@ export class TagWriteComponent implements OnInit {
     try {
       const promise = new Reader().write(
         { records: [{ recordType: 'url', data: configuration.publicUrl }] },
-        { signal: operation.signal, overwrite: true },
+        { signal: operation.signal, overwrite },
       );
       this.state.set('waiting');
       this.message.set('Aproxime a placa e mantenha-a próxima enquanto a gravação é realizada.');
@@ -103,25 +106,45 @@ export class TagWriteComponent implements OnInit {
       if (generation !== this.generation) return;
       this.operation = null;
       this.state.set('error');
-      this.message.set(this.errorMessage(error));
+      if (!overwrite && error instanceof DOMException && error.name === 'NotAllowedError') {
+        this.canInspectExisting.set(true);
+        this.message.set('A gravação foi recusada: permita o NFC no navegador ou verifique se a placa já contém dados.');
+      } else {
+        this.message.set(this.errorMessage(error));
+      }
     }
   }
 
-  async read(): Promise<void> {
+  async read(inspectExisting = false): Promise<void> {
     const configuration = this.configuration();
     const Reader = this.readerConstructor();
     if (!configuration || !this.supported || !Reader) return;
     this.cancel();
+    this.canInspectExisting.set(false);
     const operation = new AbortController();
     this.operation = operation;
     const generation = this.generation;
     try {
       const reader = new Reader();
       this.state.set('reading');
-      this.message.set('Aproxime a placa para verificar o link gravado.');
+      this.message.set(inspectExisting
+        ? 'Aproxime a placa para verificar se ela contém dados.'
+        : 'Aproxime a placa para verificar o link gravado.');
       reader.addEventListener('reading', (event) => {
         if (generation !== this.generation) return;
         const records = (event as NdefReadingEvent).message.records;
+        if (inspectExisting) {
+          const containsData = records.some((record) => record.recordType !== 'empty');
+          this.cancel();
+          if (containsData) {
+            this.confirmOverwrite.set(true);
+            this.message.set('A placa contém dados. Confirme se deseja substituí-los e aproxime a mesma placa novamente.');
+          } else {
+            this.state.set('error');
+            this.message.set('Nenhum conteúdo foi identificado. Verifique a permissão NFC e tente gravar novamente.');
+          }
+          return;
+        }
         const matches = records.some((record) =>
           record.recordType === 'url' && record.data && new TextDecoder().decode(record.data) === configuration.publicUrl,
         );
@@ -150,6 +173,8 @@ export class TagWriteComponent implements OnInit {
     this.generation++;
     this.operation?.abort();
     this.operation = null;
+    this.confirmOverwrite.set(false);
+    this.canInspectExisting.set(false);
     this.state.set('idle');
     this.message.set('');
   }
@@ -164,6 +189,18 @@ export class TagWriteComponent implements OnInit {
       this.state.set('error');
       this.message.set('Não foi possível copiar o link. Selecione e copie o endereço exibido.');
     }
+  }
+
+  downloadQr(): void {
+    if (!this.linkQrCodeDataUri) {
+      this.state.set('error');
+      this.message.set('O QR Code do link não está disponível.');
+      return;
+    }
+    const anchor = document.createElement('a');
+    anchor.href = this.linkQrCodeDataUri;
+    anchor.download = `nfc-app-${this.code}.svg`;
+    anchor.click();
   }
 
   private readerConstructor(): NdefReaderConstructor | undefined {

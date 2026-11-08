@@ -21,7 +21,9 @@
             ],
             "allowedCommonJsDependencies": [
                "prismjs",
-               "polylabel"
+               "polylabel",
+               "pdfmake/build/pdfmake",
+               "pdfmake/build/vfs_fonts"
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [

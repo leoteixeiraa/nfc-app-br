@@ -21,6 +21,9 @@ import { SignInComponent } from './pages/auth-pages/sign-in/sign-in.component';
 import { SignUpComponent } from './pages/auth-pages/sign-up/sign-up.component';
 import { CalendarComponent } from './pages/calendar/calendar.component';
 import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { ClientsComponent } from './pages/clients/clients.component';
+import { ClientDetailComponent } from './pages/clients/client-detail.component';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
 export const routes: Routes = [
   {
@@ -29,8 +32,13 @@ export const routes: Routes = [
     children:[
       {
         path: '',
-        component: TagsDashboardComponent,
+        component: DashboardComponent,
         pathMatch: 'full',
+        title: 'Dashboard | NFC.APP',
+      },
+      {
+        path: 'tags',
+        component: TagsDashboardComponent,
         title: 'Minhas placas | NFC.APP',
       },
       {
@@ -47,6 +55,16 @@ export const routes: Routes = [
         path: 'tags/:id/edit',
         component: TagFormComponent,
         title: 'Editar placa | NFC.APP',
+      },
+      {
+        path: 'clientes',
+        component: ClientsComponent,
+        title: 'Clientes | NFC.APP',
+      },
+      {
+        path: 'clientes/:placeId',
+        component: ClientDetailComponent,
+        title: 'Detalhes do cliente | NFC.APP',
       },
       {
         path: '',

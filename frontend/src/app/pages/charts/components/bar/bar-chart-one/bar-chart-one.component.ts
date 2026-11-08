@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import {
   ApexAxisChartSeries,
   ApexChart,
@@ -22,7 +22,8 @@ import { ThemeService } from '../../../../../shared/services/theme.service';
   imports: [CommonModule, NgApexchartsModule],
   templateUrl: './bar-chart-one.component.html',
 })
-export class BarChartOneComponent implements OnInit, OnDestroy {
+export class BarChartOneComponent implements OnInit, OnDestroy, OnChanges {
+  @Input() dashboardData?: { categories: string[]; values: number[] };
   public series: ApexAxisChartSeries = [
     {
       name: 'Sales',
@@ -158,6 +159,15 @@ export class BarChartOneComponent implements OnInit, OnDestroy {
   private themeSub?: Subscription;
 
   constructor(private themeService: ThemeService) {}
+
+  ngOnChanges(): void {
+    if (!this.dashboardData) return;
+    this.series = [{ name: 'Placas', data: this.dashboardData.values }];
+    this.xaxis = { ...this.xaxis, categories: this.dashboardData.categories };
+    this.yaxis = { ...this.yaxis, max: undefined, forceNiceScale: true, decimalsInFloat: 0, labels: { show: true } };
+    this.dataLabels = { ...this.dataLabels, enabled: false };
+    this.tooltip = { y: { formatter: (value: number) => value.toLocaleString('pt-BR') } };
+  }
 
   ngOnInit(): void {
     this.themeSub = this.themeService.isDarkMode$.subscribe((isDark) => {

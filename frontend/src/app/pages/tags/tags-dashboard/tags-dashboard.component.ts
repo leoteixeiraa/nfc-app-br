@@ -1,8 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { AuthSessionStore } from '../../../core/auth/auth-session.store';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
-import { NfcTag, NfcTagInput, tagTypeLabel } from '../../../core/tags/nfc-tag';
+import { TagAccountSyncService } from '../../../core/tags/tag-account-sync.service';
+import { ClientPlace, LocalClientsService } from '../../../core/clients/local-clients.service';
+import { formatBrl, NfcTag, NfcTagInput, tagTypeLabel } from '../../../core/tags/nfc-tag';
 import { TagsApiService } from '../../../core/tags/tags-api.service';
 import { ButtonComponent } from '../../../shared/components/ui/button/button.component';
 
@@ -13,7 +16,10 @@ import { ButtonComponent } from '../../../shared/components/ui/button/button.com
   templateUrl: './tags-dashboard.component.html',
 })
 export class TagsDashboardComponent {
+  readonly session = inject(AuthSessionStore);
+  readonly tagSync = inject(TagAccountSyncService);
   private readonly localTags = inject(LocalTagsService);
+  private readonly localClients = inject(LocalClientsService);
   private readonly tagsApi = inject(TagsApiService);
 
   readonly tags = signal<NfcTag[]>([]);
@@ -22,6 +28,7 @@ export class TagsDashboardComponent {
   readonly notice = signal('');
   readonly tagPendingRemoval = signal<NfcTag | null>(null);
   readonly typeLabel = tagTypeLabel;
+  readonly formatPrice = formatBrl;
 
   constructor() {
     const state = inject(Router).getCurrentNavigation()?.extras.state;
@@ -34,6 +41,13 @@ export class TagsDashboardComponent {
   duplicate(tag: NfcTag): void {
     this.actionError.set('');
     this.notice.set('');
+    let place: ClientPlace | undefined;
+    try {
+      place = this.localClients.placeForTag(tag);
+    } catch (error) {
+      this.actionError.set(this.messageFrom(error));
+      return;
+    }
     const type = tag.type === 'pix' && !tag.pixKey ? 'url' : tag.type;
     const input: NfcTagInput = {
       name: tag.name,
@@ -46,8 +60,13 @@ export class TagsDashboardComponent {
     };
     const token = this.randomToken();
     this.tagsApi.create(input, token, crypto.randomUUID()).subscribe({
-      next: () => {
+      next: (copy) => {
         this.notice.set('Placa duplicada com um novo link público.');
+        try {
+          this.localClients.setPlace(copy, place ?? null);
+        } catch (error) {
+          this.actionError.set(`Placa duplicada, mas o vínculo do estabelecimento não foi salvo: ${this.messageFrom(error)}`);
+        }
         this.reload();
       },
       error: (error: unknown) => this.actionError.set(this.messageFrom(error)),
@@ -70,10 +89,15 @@ export class TagsDashboardComponent {
     this.tagPendingRemoval.set(null);
     this.actionError.set('');
     this.notice.set('');
-    if (tag.managementToken) {
+    if (tag.managementToken || tag.accountOwned) {
       this.tagsApi.deactivate(tag).subscribe({
         next: () => {
           this.notice.set('Placa desativada e removida da listagem.');
+          try {
+            this.localClients.forgetTag(tag.id);
+          } catch (error) {
+            this.actionError.set(this.messageFrom(error));
+          }
           this.reload();
         },
         error: (error: unknown) => this.actionError.set(this.messageFrom(error)),
@@ -82,6 +106,7 @@ export class TagsDashboardComponent {
     }
     this.runLocalAction(() => {
       this.localTags.remove(tag.id);
+      this.localClients.forgetTag(tag.id);
       return 'Placa local removida deste navegador.';
     });
   }

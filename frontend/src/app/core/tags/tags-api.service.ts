@@ -19,6 +19,17 @@ interface TagResponse {
   pixKey: string | null;
   pixReceiverName: string | null;
   pixCity: string | null;
+  salePrice: number | null;
+}
+
+export interface AccountTag extends Partial<TagResponse> {
+  id: string;
+  updatedAt?: string;
+}
+
+export interface TagClaim {
+  code: string;
+  managementToken: string;
 }
 
 export interface PlaceResult {
@@ -30,6 +41,9 @@ export interface PlaceResult {
   photoUrl?: string | null;
   photoAttributions?: Array<{ displayName: string; uri: string | null }>;
   googleMapsUrl?: string | null;
+  category?: string | null;
+  phone?: string | null;
+  website?: string | null;
 }
 
 export interface PlaceDetails extends PlaceResult {
@@ -39,6 +53,17 @@ export interface PlaceDetails extends PlaceResult {
   photoAttributions: Array<{ displayName: string; uri: string | null }>;
   googleMapsUrl: string | null;
   reviewUrl: string;
+  reviews?: PlaceReview[] | null;
+}
+
+export interface PlaceReview {
+  author: string;
+  authorUrl: string | null;
+  rating: number | null;
+  text: string;
+  publishedAt: string;
+  relativeTime: string;
+  googleMapsUrl: string | null;
 }
 
 export interface PixPreview {
@@ -72,29 +97,68 @@ export class TagsApiService {
     );
   }
 
-  update(id: string, input: NfcTagInput, token: string): Observable<NfcTag> {
-    return this.fetchCsrf().pipe(
-      switchMap(() =>
-        this.http.put<TagResponse>(`/api/tags/${encodeURIComponent(id)}`, this.requestBody(input), {
-          headers: { 'X-Tag-Management-Token': token },
-        }),
-      ),
-      map((response) => this.toLocalTag(response, token)),
+  update(id: string, input: NfcTagInput, token: string | null): Observable<NfcTag> {
+    const request = token
+      ? this.fetchCsrf().pipe(
+          switchMap(() =>
+            this.http.put<TagResponse>(`/api/tags/${encodeURIComponent(id)}`, this.requestBody(input), {
+              headers: { 'X-Tag-Management-Token': token },
+            }),
+          ),
+        )
+      : this.fetchCsrf().pipe(
+          switchMap(() =>
+            this.http.put<TagResponse>(`/api/account/tags/${encodeURIComponent(id)}`, this.requestBody(input)),
+          ),
+        );
+    return request.pipe(
+      map((response) => this.toLocalTag(response, token ?? undefined)),
       tap((tag) => this.localTags.saveRemote({ ...tag, qrCodeDataUri: undefined })),
     );
   }
 
   deactivate(tag: NfcTag): Observable<void> {
-    if (!tag.managementToken) {
+    if (!tag.managementToken && !tag.accountOwned) {
       throw new Error('Esta placa não possui credencial de gerenciamento neste navegador.');
     }
+    const url = tag.managementToken
+      ? `/api/tags/${encodeURIComponent(tag.id)}`
+      : `/api/account/tags/${encodeURIComponent(tag.id)}`;
     return this.fetchCsrf().pipe(
       switchMap(() =>
-        this.http.delete<void>(`/api/tags/${encodeURIComponent(tag.id)}`, {
-          headers: { 'X-Tag-Management-Token': tag.managementToken! },
+        this.http.delete<void>(url, {
+          headers: tag.managementToken ? { 'X-Tag-Management-Token': tag.managementToken } : undefined,
         }),
       ),
       tap(() => this.localTags.remove(tag.id)),
+    );
+  }
+
+  listAccountTags(): Observable<AccountTag[]> {
+    return this.http.get<AccountTag[]>('/api/account/tags');
+  }
+
+  /** Traz para o navegador as placas da conta que ainda não existem (ou mudaram) localmente. */
+  importAccountTags(accountTags: AccountTag[]): void {
+    const local = new Map(this.localTags.list().map((tag) => [tag.id, tag]));
+    for (const remote of accountTags) {
+      if (!remote.type || remote.active === false) {
+        continue;
+      }
+      const existing = local.get(remote.id);
+      if (existing && existing.updatedAt === remote.updatedAt) {
+        continue;
+      }
+      this.localTags.saveRemote({
+        ...this.toLocalTag(remote as TagResponse, existing?.managementToken),
+        qrCodeDataUri: undefined,
+      });
+    }
+  }
+
+  claimAccountTags(tags: TagClaim[]): Observable<AccountTag[]> {
+    return this.fetchCsrf().pipe(
+      switchMap(() => this.http.post<AccountTag[]>('/api/account/tags/claim', { tags })),
     );
   }
 
@@ -103,9 +167,11 @@ export class TagsApiService {
     return this.http.get<PlaceResult[]>('/api/places/search', { params });
   }
 
-  placeDetails(placeId: string): Observable<PlaceDetails> {
+  placeDetails(placeId: string, includeReviews = false): Observable<PlaceDetails> {
     return this.http
-      .get<PlaceDetails>(`/api/places/${encodeURIComponent(placeId)}/details`);
+      .get<PlaceDetails>(`/api/places/${encodeURIComponent(placeId)}/details`, {
+        params: includeReviews ? new HttpParams().set('includeReviews', 'true') : undefined,
+      });
   }
 
   previewPix(key: string, receiverName: string, city: string): Observable<PixPreview> {
@@ -136,11 +202,12 @@ export class TagsApiService {
       pixKey: input.pixKey || null,
       pixReceiverName: input.pixReceiverName || null,
       pixCity: input.pixCity || null,
+      salePrice: input.salePrice ?? null,
       managementToken: managementToken ?? null,
     };
   }
 
-  private toLocalTag(response: TagResponse, managementToken: string): NfcTag {
+  private toLocalTag(response: TagResponse, managementToken?: string): NfcTag {
     return {
       id: response.id,
       name: response.name,
@@ -150,8 +217,10 @@ export class TagsApiService {
       pixKey: response.pixKey ?? undefined,
       pixReceiverName: response.pixReceiverName ?? undefined,
       pixCity: response.pixCity ?? undefined,
+      salePrice: response.salePrice ?? undefined,
       publicUrl: response.publicUrl,
       managementToken,
+      accountOwned: managementToken ? undefined : true,
       qrCodeDataUri: response.qrCodeDataUri,
       active: response.active,
       createdAt: response.createdAt,

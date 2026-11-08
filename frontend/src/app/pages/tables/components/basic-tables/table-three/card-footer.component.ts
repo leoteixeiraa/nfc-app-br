@@ -21,7 +21,7 @@ import { ButtonComponent } from '../../../../../shared/components/ui/button/butt
             type="button"
             [disabled]="currentPage <= 1"
             (click)="onPageChange(currentPage - 1)"
-            aria-label="Previous page"
+            [attr.aria-label]="previousLabel"
             class="flex size-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             <svg
@@ -45,7 +45,7 @@ import { ButtonComponent } from '../../../../../shared/components/ui/button/butt
             type="button"
             [disabled]="currentPage >= totalPages"
             (click)="onPageChange(currentPage + 1)"
-            aria-label="Next page"
+            [attr.aria-label]="nextLabel"
             class="flex size-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             <svg
@@ -70,12 +70,12 @@ import { ButtonComponent } from '../../../../../shared/components/ui/button/butt
 
       <!-- Desktop Pagination (>= sm) -->
       <div class="hidden sm:flex sm:items-center sm:justify-start">
-        <nav class="flex items-center gap-1.5" aria-label="Pagination">
+        <nav class="flex items-center gap-1.5" [attr.aria-label]="paginationLabel">
           <button app-button variant="unstyled"
             type="button"
             [disabled]="currentPage <= 1"
             (click)="onPageChange(currentPage - 1)"
-            aria-label="Previous page"
+            [attr.aria-label]="previousLabel"
             class="flex size-9 cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             <svg
@@ -121,7 +121,7 @@ import { ButtonComponent } from '../../../../../shared/components/ui/button/butt
             type="button"
             [disabled]="currentPage >= totalPages"
             (click)="onPageChange(currentPage + 1)"
-            aria-label="Next page"
+            [attr.aria-label]="nextLabel"
             class="flex size-9 cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-theme-xs transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5"
           >
             <svg
@@ -147,6 +147,9 @@ import { ButtonComponent } from '../../../../../shared/components/ui/button/butt
   `,
 })
 export class CardFooterComponent {
+  @Input() previousLabel = 'Previous page';
+  @Input() nextLabel = 'Next page';
+  @Input() paginationLabel = 'Pagination';
   @Input() currentPage = 1;
   @Input() totalPages = 10;
   @Output() pageChange = new EventEmitter<number>();

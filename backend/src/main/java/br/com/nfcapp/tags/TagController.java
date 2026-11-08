@@ -86,12 +86,13 @@ public class TagController {
     @GetMapping("/api/places/{placeId}/details")
     public GooglePlacesService.PlaceDetails placeDetails(
             @PathVariable String placeId,
+            @RequestParam(defaultValue = "false") boolean includeReviews,
             HttpServletRequest servletRequest) {
         limit(servletRequest, "places-details", 30, Duration.ofMinutes(1));
         if (!placeId.matches("[A-Za-z0-9_-]{1,256}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estabelecimento inválido.");
         }
-        return places.details(placeId);
+        return places.details(placeId, includeReviews);
     }
 
     @GetMapping("/api/places/{placeId}/review-link")

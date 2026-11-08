@@ -1,5 +1,5 @@
 import { LOCAL_TAGS_STORAGE_KEY, LocalTagsError, LocalTagsService } from './local-tags.service';
-import { buildDestinationUrl, validateDestinationUrl } from './nfc-tag';
+import { buildDestinationUrl, formatCurrencyMask, parseCurrencyMask, validateDestinationUrl } from './nfc-tag';
 
 describe('LocalTagsService', () => {
   let service: LocalTagsService;
@@ -16,6 +16,47 @@ describe('LocalTagsService', () => {
 
   it('lista vazio quando não há dados', () => {
     expect(service.list()).toEqual([]);
+  });
+
+  it('cria com valor de venda, altera e remove o valor', () => {
+    const tag = service.create({ ...input, salePrice: 49.9 });
+    expect(service.getById(tag.id)?.salePrice).toBe(49.9);
+    expect(service.update(tag.id, { ...input, salePrice: 0 }).salePrice).toBe(0);
+    expect(service.update(tag.id, input).salePrice).toBeUndefined();
+  });
+
+  it('rejeita valor de venda negativo', () => {
+    expect(() => service.create({ ...input, salePrice: -1 })).toThrowError(LocalTagsError);
+  });
+
+  it('mantém compatibilidade com placas antigas sem salePrice', () => {
+    const legacy = {
+      id: 'legacy',
+      name: 'Antiga',
+      type: 'url',
+      destinationUrl: 'https://exemplo.com.br',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    localStorage.setItem(LOCAL_TAGS_STORAGE_KEY, JSON.stringify([legacy]));
+    expect(service.list()[0].salePrice).toBeUndefined();
+  });
+
+  it('preserva o valor ao sincronizar placas do backend', () => {
+    service.saveRemote({
+      ...service.create(input),
+      id: 'remote',
+      salePrice: 12.5,
+      publicUrl: 'https://nfc.app.br/t/remote',
+    });
+    expect(service.getById('remote')?.salePrice).toBe(12.5);
+  });
+
+  it('formata e interpreta a máscara monetária', () => {
+    expect(formatCurrencyMask('4990').replace(/\s/g, ' ')).toBe('R$ 49,90');
+    expect(formatCurrencyMask('')).toBe('');
+    expect(parseCurrencyMask('R$ 49,90')).toBe(49.9);
+    expect(parseCurrencyMask('')).toBeUndefined();
   });
 
   it('cria, busca e persiste na chave única', () => {

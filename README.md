@@ -51,15 +51,27 @@ PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva 
 
 A migração inicial Flyway é aplicada automaticamente ao iniciar o backend. Hibernate está em `ddl-auto: validate`; criação/alteração futura de esquema deve ocorrer exclusivamente por novas migrações Flyway.
 
+O login Google é mantido no navegador e a sessão do servidor é renovada automaticamente quando expira ou o navegador é reaberto. Ao sair, ambas as sessões são encerradas. A permanência depende do armazenamento do navegador e da validade da autenticação Google; limpeza dos dados, revogação de acesso ou uso de navegação privada podem exigir novo login. Em computadores compartilhados, encerre a sessão ao terminar.
+
 ## Placas NFC
 
 Placas anônimas são publicadas no backend e persistidas no PostgreSQL. O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. Limpar os dados do navegador ou mudar de dispositivo remove o acesso local de gerenciamento, mas não invalida a placa pública. Ainda não há exportação nem associação de placas anônimas a uma conta.
 
 O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
 
-Após criar uma placa, escolha **Gravar placa NFC**. Em Android com navegador compatível e NFC habilitado, a Web NFC grava o link dinâmico após confirmação; cartões bloqueados ou incompatíveis não podem ser gravados. O iPhone requer um aplicativo NFC. No computador, o QR Code abre a gravação no celular sem transferir a credencial de gerenciamento ou adicionar a placa ao armazenamento local do celular. Qualquer pessoa com esse QR Code pode gravar e testar o link público; não o compartilhe com desconhecidos. O link precisa estar ativo no backend. Teste o destino e, quando disponível, verifique o conteúdo por leitura NFC.
+Após criar uma placa, escolha **Gravar placa NFC**. Em Android com navegador compatível e NFC habilitado, a Web NFC grava o link dinâmico diretamente, sem outro aparelho. A primeira tentativa não substitui conteúdo existente. Se for recusada, permita o NFC ou verifique o conteúdo da placa; após identificar dados, é possível confirmar a substituição e aproximar a mesma placa novamente. Cartões bloqueados ou incompatíveis não podem ser gravados. O iPhone requer um aplicativo NFC. No computador, o QR Code abre a gravação no celular sem transferir a credencial de gerenciamento ou adicionar a placa ao armazenamento local do celular. Qualquer pessoa com esse QR Code pode gravar e testar o link público; não o compartilhe com desconhecidos. O QR Code do link da placa é opcional e não é necessário para a gravação. O link precisa estar ativo no backend. Teste o destino e, quando disponível, verifique o conteúdo por leitura NFC.
 
 A Web NFC exige um contexto seguro. Em produção, configure `APP_DOMAIN` para o domínio HTTPS público correto. Endereços `localhost` são úteis para desenvolvimento local, mas não permitem continuar pelo celular, pois apontam para o próprio dispositivo.
+
+## Dashboard
+
+A página inicial apresenta o resumo das placas e clientes deste navegador, inclusive após o login; ainda não há sincronização com a conta. O faturamento é a soma dos valores de venda informados nas placas, não uma confirmação de pagamento. Os filtros usam a data de criação das placas e dos clientes; placas ativas refletem o status armazenado localmente. Os gráficos exibem os últimos 6 ou 12 meses dentro do período escolhido, que pode ser maior do que o intervalo visualizado.
+
+## Clientes
+
+Ao criar uma placa e gerar seu link, o navegador cadastra o estabelecimento como cliente e vincula a placa, independentemente da gravação NFC. Estabelecimentos selecionados na busca Google são identificados pelo Google Place ID; para placas sem Place ID, o agrupamento usa o nome, ignorando diferenças de maiúsculas e espaços extras. Nomes iguais podem representar estabelecimentos diferentes, portanto confira-os antes de criar a placa. Se uma placa anterior já estiver salva neste navegador com link público, ela também será associada ao abrir Clientes.
+
+Clientes e vínculos ficam no `localStorage` deste navegador e não são sincronizados entre dispositivos ou contas. A edição da placa atualiza o vínculo; a remoção da placa elimina seu vínculo, mas mantém o cliente. Limpar os dados do navegador também remove os clientes. Os números de scans exibidos no aplicativo são simulados e não representam telemetria real. O relatório PDF apresenta reputação no Google e placas, indicando que dados de interação ainda não estão disponíveis, sem incluir esses números simulados. Para clientes associados ao Google, a geração consulta novamente o Places e inclui até cinco avaliações disponíveis selecionadas por relevância, não necessariamente as mais recentes. Essa consulta pode gerar cobrança adicional do Google. Se a consulta falhar, o relatório não é gerado. Clientes sem Google Place ID não têm avaliações individuais no relatório.
 
 ## Desenvolvimento e testes
 

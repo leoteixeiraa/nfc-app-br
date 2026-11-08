@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ public class GooglePlacesService {
     private final ObjectMapper objectMapper;
     private final String apiKey;
 
+    @Autowired
     public GooglePlacesService(
             RestClient.Builder builder,
             ObjectMapper objectMapper,
@@ -36,6 +38,12 @@ public class GooglePlacesService {
                 new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
         requestFactory.setReadTimeout(Duration.ofSeconds(8));
         this.restClient = builder.requestFactory(requestFactory).baseUrl("https://places.googleapis.com/v1").build();
+        this.objectMapper = objectMapper;
+        this.apiKey = apiKey;
+    }
+
+    GooglePlacesService(RestClient restClient, ObjectMapper objectMapper, String apiKey) {
+        this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
     }
@@ -84,16 +92,17 @@ public class GooglePlacesService {
         }
     }
 
-    public PlaceDetails details(String placeId) {
+    public PlaceDetails details(String placeId, boolean includeReviews) {
         requireApiKey();
         try {
             String response = restClient.get()
-                    .uri("/places/{id}", placeId)
+                    .uri("/places/{id}?languageCode=pt-BR", placeId)
                     .header("X-Goog-Api-Key", apiKey)
                     .header(
                             "X-Goog-FieldMask",
                             "id,displayName,formattedAddress,rating,userRatingCount,photos.name,"
-                                    + "photos.authorAttributions,googleMapsUri,googleMapsLinks.writeAReviewUri")
+                                    + "photos.authorAttributions,googleMapsUri,googleMapsLinks.writeAReviewUri"
+                                    + (includeReviews ? ",reviews,primaryTypeDisplayName,nationalPhoneNumber,websiteUri" : ""))
                     .retrieve()
                     .body(String.class);
             JsonNode place = objectMapper.readTree(response);
@@ -110,11 +119,35 @@ public class GooglePlacesService {
                     photoUrl,
                     photo.isMissingNode() ? List.of() : photoAttributions(photo),
                     googleMapsUrl(place.path("googleMapsUri").asText("")),
-                    reviewUrl);
+                    reviewUrl,
+                    includeReviews ? reviews(place.path("reviews")) : null,
+                    includeReviews ? place.path("primaryTypeDisplayName").path("text").asText("") : null,
+                    includeReviews ? place.path("nationalPhoneNumber").asText("") : null,
+                    includeReviews ? place.path("websiteUri").asText("") : null);
         } catch (RestClientException | java.io.IOException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY, "Não foi possível carregar as informações deste estabelecimento.");
         }
+    }
+
+    List<PlaceReview> reviews(JsonNode reviews) {
+        List<PlaceReview> result = new ArrayList<>();
+        for (JsonNode review : reviews) {
+            JsonNode author = review.path("authorAttribution");
+            String authorUri = author.path("uri").asText("");
+            if (authorUri.startsWith("//")) {
+                authorUri = "https:" + authorUri;
+            }
+            result.add(new PlaceReview(
+                    author.path("displayName").asText("Autor não informado"),
+                    allowedGoogleUrl(authorUri, "google.com"),
+                    review.has("rating") ? review.path("rating").asDouble() : null,
+                    review.path("text").path("text").asText(""),
+                    review.path("publishTime").asText(""),
+                    review.path("relativePublishTimeDescription").asText(""),
+                    allowedGoogleUrl(review.path("googleMapsUri").asText(""), "google.com")));
+        }
+        return result;
     }
 
     private String photoUrl(String placeId, String photoName) {
@@ -190,6 +223,16 @@ public class GooglePlacesService {
     public record PhotoAttribution(String displayName, String uri) {
     }
 
+    public record PlaceReview(
+            String author,
+            String authorUrl,
+            Double rating,
+            String text,
+            String publishedAt,
+            String relativeTime,
+            String googleMapsUrl) {
+    }
+
     public record PlaceDetails(
             String placeId,
             String name,
@@ -199,6 +242,10 @@ public class GooglePlacesService {
             String photoUrl,
             List<PhotoAttribution> photoAttributions,
             String googleMapsUrl,
-            String reviewUrl) {
+            String reviewUrl,
+            List<PlaceReview> reviews,
+            String category,
+            String phone,
+            String website) {
     }
 }

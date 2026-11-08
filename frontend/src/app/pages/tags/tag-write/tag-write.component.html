@@ -31,17 +31,20 @@
     } @else {
       @if (confirmOverwrite()) {
         <div class="space-y-3 rounded-xl border border-warning-500/30 bg-warning-50 p-4 dark:bg-warning-500/10">
-          <p class="text-sm text-gray-700 dark:text-gray-300">A gravação substituirá o conteúdo existente do cartão. A placa não será bloqueada permanentemente.</p>
+          <p class="text-sm text-gray-700 dark:text-gray-300">A gravação substituirá o conteúdo identificado na placa. Aproxime a mesma placa novamente; outra placa também terá seu conteúdo substituído. A placa não será bloqueada permanentemente.</p>
           <div class="flex flex-wrap gap-3">
-            <button app-button type="button" (click)="write()">Confirmar e aproximar placa</button>
-            <button app-button variant="outline" type="button" (click)="confirmOverwrite.set(false)">Cancelar</button>
+            <button app-button type="button" (click)="write(true)">Confirmar e gravar</button>
+            <button app-button variant="outline" type="button" (click)="cancel()">Cancelar</button>
           </div>
         </div>
       } @else if (state() === 'waiting' || state() === 'starting' || state() === 'reading') {
         <button app-button variant="outline" type="button" (click)="cancel()">Cancelar operação</button>
       } @else {
         <div class="flex flex-wrap gap-3">
-          <button app-button type="button" (click)="confirmOverwrite.set(true)">{{ state() === 'success' ? 'Gravar novamente' : 'Gravar placa NFC' }}</button>
+          <button app-button type="button" (click)="write()">{{ state() === 'success' ? 'Gravar novamente' : 'Gravar placa NFC' }}</button>
+          @if (canInspectExisting()) {
+            <button app-button variant="outline" type="button" (click)="read(true)">Verificar conteúdo da placa</button>
+          }
           <button app-button variant="outline" type="button" (click)="read()">Verificar por leitura NFC</button>
         </div>
       }
@@ -53,8 +56,18 @@
     }
     <div class="flex flex-wrap gap-3">
       <a app-button variant="outline" [href]="config.publicUrl" target="_blank" rel="noopener noreferrer">Testar placa</a>
-      <a app-button variant="outline" routerLink="/">Concluir</a>
+      <a app-button variant="outline" routerLink="/tags">Concluir</a>
     </div>
+    @if (linkQrCodeDataUri) {
+      <details class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <summary class="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">QR Code do link (opcional)</summary>
+        <div class="mt-4 flex flex-col items-start gap-3">
+          <p class="text-sm text-gray-500 dark:text-gray-400">Este QR Code abre o link da placa. Não é necessário para gravar o NFC.</p>
+          <img [src]="linkQrCodeDataUri" alt="QR Code do link da placa" class="h-52 w-52" />
+          <button app-button variant="outline" type="button" (click)="downloadQr()">Baixar QR Code do link</button>
+        </div>
+      </details>
+    }
   } @else {
     @if (message()) {
       <p role="alert" class="text-sm text-error-500">{{ message() }}</p>

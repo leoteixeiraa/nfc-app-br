@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import {
   ApexAxisChartSeries,
   ApexChart,
@@ -16,13 +16,15 @@ import {
 } from 'ng-apexcharts';
 import { Subscription } from 'rxjs';
 import { ThemeService } from '../../../../../shared/services/theme.service';
+import { formatBrl } from '../../../../../core/tags/nfc-tag';
 
 @Component({
   selector: 'app-line-chart-one',
   imports: [CommonModule, NgApexchartsModule],
   templateUrl: './line-chart-one.component.html',
 })
-export class LineChartOneComponent implements OnInit, OnDestroy {
+export class LineChartOneComponent implements OnInit, OnDestroy, OnChanges {
+  @Input() dashboardData?: { categories: string[]; values: number[] };
   public series: ApexAxisChartSeries = [
     {
       name: 'Sales',
@@ -200,6 +202,14 @@ export class LineChartOneComponent implements OnInit, OnDestroy {
   private themeSub?: Subscription;
 
   constructor(private themeService: ThemeService) {}
+
+  ngOnChanges(): void {
+    if (!this.dashboardData) return;
+    this.series = [{ name: 'Faturamento', data: this.dashboardData.values }];
+    this.xaxis = { ...this.xaxis, categories: this.dashboardData.categories };
+    this.yaxis = { ...this.yaxis, max: undefined, labels: { ...this.yaxis.labels, formatter: formatBrl } };
+    this.tooltip = { enabled: true, y: { formatter: formatBrl } };
+  }
 
   ngOnInit(): void {
     this.themeSub = this.themeService.isDarkMode$.subscribe((isDark) => {

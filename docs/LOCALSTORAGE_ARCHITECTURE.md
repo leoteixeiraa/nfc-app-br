@@ -1,62 +1,37 @@
-# Armazenamento local de placas
+# Armazenamento de placas neste dispositivo
 
-## Objetivo
+## Situação atual
 
-Permitir que visitantes (sem login) configurem e gerenciem rascunhos de placas NFC no próprio navegador. Nada é enviado ao backend e nenhuma URL pública é gerada ou marcada como publicada.
+O dashboard e a criação de placas estão disponíveis sem login. A criação publica
+o link por meio da API e guarda no navegador os dados necessários ao gerenciamento
+da placa. A sincronização de placas e clientes com a conta ainda não está pronta.
+O código de integração em desenvolvimento não deve importar registros antigos
+sem confirmação nem remover dados antes da confirmação de persistência.
 
-## Chave
+Os dados de clientes e seus vínculos continuam apenas no navegador e não são
+sincronizados com a conta.
 
-Uma única chave de `localStorage`: `nfcapp.tags.v1`, contendo um array JSON.
+`LocalTagsService` mantém os registros em `nfcapp.tags.v1`. Cada placa tem um
+identificador persistente, datas e, quando publicada, o link público e uma
+credencial de gerenciamento. `LocalClientsService` mantém clientes e vínculos em
+`nfcapp.clients.v1`. Esses dados podem incluir informações sensíveis: não devem
+ser expostos em logs, URLs, exemplos reais ou arquivos versionados.
 
-## Modelo
+Dados inválidos ou indisponíveis são informados ao usuário; o serviço de placas
+não sobrescreve registros que não consegue interpretar. Limpar os dados do site,
+usar outro perfil do navegador ou perder o dispositivo pode impedir o acesso
+às placas que ainda não foram associadas à conta. Não há backup automático de
+clientes nem acesso entre dispositivos para esses dados.
 
-```ts
-type NfcTagType = 'google-review' | 'whatsapp' | 'pix' | 'url';
+## Associação experimental de placas à conta
 
-interface NfcTag {
-  id: string; // crypto.randomUUID()
-  name: string;
-  type: NfcTagType;
-  destinationUrl: string; // sempre HTTPS (WhatsApp vira https://wa.me/<número>)
-  createdAt: string; // ISO 8601
-  updatedAt: string; // ISO 8601
-}
-```
+O backend contém endpoints experimentais de associação e consulta, desativados por
+padrão com `app.account-tags.enabled`. A ativação antes da integração completa
+pode impedir o gerenciamento pela interface atual. A associação verifica a
+credencial de gerenciamento e o titular, sem alterar o link público. A migration
+adiciona a referência ao proprietário, sem transferir dados existentes.
 
-```json
-[
-  {
-    "id": "0b8f6c1e-3c1a-4a52-9a54-5f6f3a0b7d11",
-    "name": "Balcão da loja",
-    "type": "whatsapp",
-    "destinationUrl": "https://wa.me/5511999999999",
-    "createdAt": "2026-01-10T12:00:00.000Z",
-    "updatedAt": "2026-01-10T12:00:00.000Z"
-  }
-]
-```
-
-Código: `frontend/src/app/core/tags/` (`nfc-tag.ts` com modelo e validações; `local-tags.service.ts` com a persistência).
-
-## Responsabilidade do serviço
-
-`LocalTagsService` é o único ponto de acesso ao `localStorage`: `list`, `getById`, `create`, `update`, `duplicate` e `remove`. Ele valida entradas e registros lidos, ordena por `updatedAt` (mais recente primeiro) e lança `LocalTagsError` (`unavailable`, `corrupted`, `write`, `invalid`, `not-found`). Se o conteúdo salvo estiver inválido, a leitura falha e nenhuma escrita acontece, preservando o dado original.
-
-## Fluxos
-
-- **Criar:** formulário → validação por tipo → `create` grava → redireciona ao dashboard com a mensagem de sucesso (somente após a gravação).
-- **Editar:** `/tags/:id/edit` carrega via `getById` → `update` grava e renova `updatedAt`.
-- **Duplicar:** `duplicate` cria cópia com novo `id` e sufixo " (cópia)".
-- **Excluir:** confirmação no dashboard → `remove`.
-
-## Limitações
-
-- Dados ficam apenas naquele navegador/dispositivo e perfil; não há backup nem acesso multi-dispositivo.
-- Limpar dados do site ou modo anônimo apaga as placas.
-- Cota de ~5 MB e possível indisponibilidade (navegação privada restrita, políticas do navegador).
-- Não armazenar tokens ou dados sensíveis. Placas não têm URL pública (`nfc.app.br/r/:slug`).
-- Google Avaliações aceita apenas hosts google.com, g.page, goo.gl e g.co.
-
-## Evolução futura
-
-Com usuário autenticado, as placas locais poderiam ser importadas para a conta (endpoint e tabela próprios, via migration), mantendo a chave `v1` como origem da importação e versionando o formato (`v2`) quando necessário.
+Ainda faltam importação e consulta de clientes, identificação confiável da origem
+dos registros locais, confirmação contextual para dados antigos, remoção segura
+após confirmação, integração do fluxo de sessão e gestão de placas da conta no
+frontend, além da validação de ponta a ponta.

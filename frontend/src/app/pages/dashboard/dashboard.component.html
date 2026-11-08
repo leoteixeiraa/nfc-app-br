@@ -1,0 +1,162 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Dashboard</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Acompanhe suas placas, clientes e vendas.</p>
+    </div>
+    <div class="flex flex-wrap items-end gap-3">
+      @if (!loading() && !error() && !isExample()) {
+      <label class="text-sm text-gray-600 dark:text-gray-300">
+        <span class="mb-1 block">Período</span>
+        <select #periodSelect [value]="period()" (change)="setPeriod(periodSelect.value)"
+          class="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+          <option value="month">Este mês</option>
+          <option value="30days">Últimos 30 dias</option>
+          <option value="6months">Últimos 6 meses</option>
+          <option value="12months">Últimos 12 meses</option>
+          <option value="all">Todo o período</option>
+        </select>
+      </label>
+      }
+      <a app-button routerLink="/tags/new">Nova placa</a>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div role="status" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="h-32 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800"></div>
+      }
+      <span class="sr-only">Carregando dashboard...</span>
+    </div>
+  } @else if (error()) {
+    <div role="alert" class="rounded-xl border border-error-500 bg-error-50 p-4 text-sm text-error-600 dark:bg-error-500/15">
+      {{ error() }}
+      <button type="button" class="ml-2 underline" (click)="reload()">Tentar novamente</button>
+    </div>
+  } @else {
+    @if (isExample() && !session.currentUser()) {
+      <section class="rounded-2xl border border-brand-100 bg-brand-50 p-6 dark:border-brand-500/30 dark:bg-brand-500/10">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Bem-vindo ao NFC.APP 👋</h2>
+        <p class="mt-2 max-w-2xl text-sm text-gray-600 dark:text-gray-300">
+          Crie e gerencie suas placas NFC de forma simples. Experimente gratuitamente, sem precisar de cadastro.
+        </p>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a app-button routerLink="/tags/new">Criar minha primeira placa</a>
+          <a app-button variant="outline" routerLink="/signin">Já tenho uma conta</a>
+        </div>
+      </section>
+    } @else if (isExample()) {
+      <section class="rounded-2xl border border-brand-100 bg-brand-50 p-6 dark:border-brand-500/30 dark:bg-brand-500/10">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-white/90">Comece com sua primeira placa</h2>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Crie uma placa NFC para compartilhar links, avaliações ou pagamentos.</p>
+        <a app-button class="mt-5" routerLink="/tags/new">Criar minha primeira placa</a>
+      </section>
+    } @else if (tags().length > 0 && !session.currentUser()) {
+      <div class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Suas placas estão salvas neste dispositivo. Crie uma conta para gerenciá-las com mais segurança.
+          <a routerLink="/signup" class="ml-1 font-medium underline">Criar conta</a>
+      </div>
+    }
+
+    @if (session.currentUser() && tagSync.status() === 'syncing' && tagSync.pendingImportCount() === 0) {
+      <p role="status" class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Verificando a sincronização das placas com sua conta...
+      </p>
+    }
+    @if (session.currentUser() && (tagSync.status() === 'syncing' || tagSync.status() === 'pending' || tagSync.status() === 'error') && tagSync.pendingImportCount() > 0) {
+      <p role="status" class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Existem {{ tagSync.pendingImportCount() }} {{ tagSync.pendingImportCount() === 1 ? 'placa aguardando' : 'placas aguardando' }} importação para sua conta.
+      </p>
+    }
+    @if (session.currentUser() && tagSync.status() === 'error') {
+      <div role="alert" class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-warning-500/40 bg-warning-50 p-3 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+        <span>Não foi possível confirmar a sincronização das placas. {{ tagSync.error() }}</span>
+        <button type="button" class="font-medium underline" (click)="tagSync.retry()">Tentar novamente</button>
+      </div>
+    }
+
+    @if (isExample()) {
+      <p class="text-sm font-medium text-brand-700 dark:text-brand-300">Dados de exemplo dos últimos 12 meses. Não representam suas placas ou vendas.</p>
+    }
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      @for (card of [
+        { label: 'Faturamento total', value: formatPrice(isExample() ? 2600 : data().revenue) },
+        { label: 'Placas criadas', value: isExample() ? 26 : data().tagCount },
+        { label: 'Clientes', value: isExample() ? 18 : data().clientCount },
+        { label: 'Placas ativas', value: isExample() ? 24 : data().activeCount }
+      ]; track card.label) {
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{ card.label }}</p>
+          <p class="mt-3 text-title-sm font-semibold text-gray-800 dark:text-white/90">{{ card.value }}</p>
+        </div>
+      }
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        {{ isExample() ? 'Gráficos de exemplo por mês.' : 'Gráficos por mês de criação, considerando o período selecionado.' }}
+      </p>
+      <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        Meses no gráfico
+        <select #monthsSelect [value]="chartMonths()" (change)="setChartMonths(monthsSelect.value)"
+          class="rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+          <option value="6">Últimos 6 meses</option>
+          <option value="12">Últimos 12 meses</option>
+        </select>
+      </label>
+    </div>
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Evolução do faturamento{{ isExample() ? ' (exemplo)' : '' }}</h2>
+        @if (revenueChart().values.some(hasValue)) {
+          <app-line-chart-one [dashboardData]="revenueChart()" />
+        } @else {
+          <p class="py-16 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum faturamento no intervalo exibido.</p>
+        }
+      </section>
+      <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Placas criadas por mês{{ isExample() ? ' (exemplo)' : '' }}</h2>
+        @if (tagsChart().values.some(hasValue)) {
+          <app-bar-chart-one [dashboardData]="tagsChart()" />
+        } @else {
+          <p class="py-16 text-center text-sm text-gray-500 dark:text-gray-400">Nenhuma placa no intervalo exibido.</p>
+        }
+      </section>
+    </div>
+
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/3">
+      <div class="flex flex-wrap items-center justify-between gap-3 p-5">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Últimas placas cadastradas</h2>
+        <a routerLink="/tags" class="text-sm font-medium text-brand-500 hover:underline">Ver minhas placas</a>
+      </div>
+      @if (data().recentTags.length === 0) {
+        <p class="px-5 pb-8 text-sm text-gray-500 dark:text-gray-400">Nenhuma placa cadastrada neste período.</p>
+      } @else {
+        <div class="max-w-full overflow-x-auto">
+          <table app-table class="min-w-full">
+            <thead app-table-header class="border-y border-gray-100 dark:border-white/5">
+              <tr app-table-row>
+                @for (heading of ['Placa / estabelecimento', 'Tipo', 'Criação', 'Status', 'Valor da venda', 'Ação']; track heading) {
+                  <th app-table-cell class="whitespace-nowrap px-5 py-3 text-start text-xs font-medium text-gray-500 dark:text-gray-400">{{ heading }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody app-table-body class="divide-y divide-gray-100 dark:divide-white/5">
+              @for (tag of data().recentTags; track tag.id) {
+                <tr app-table-row class="text-sm text-gray-700 dark:text-gray-300">
+                  <td app-table-cell class="px-5 py-4 font-medium">{{ tag.name }}</td>
+                  <td app-table-cell class="whitespace-nowrap px-5 py-4">{{ typeLabel(tag.type) }}</td>
+                  <td app-table-cell class="whitespace-nowrap px-5 py-4">{{ tag.createdAt | date:'dd/MM/yyyy' }}</td>
+                  <td app-table-cell class="whitespace-nowrap px-5 py-4">{{ tag.active === false ? 'Desativada' : 'Ativa' }}</td>
+                  <td app-table-cell class="whitespace-nowrap px-5 py-4">{{ tag.salePrice === undefined ? '—' : formatPrice(tag.salePrice) }}</td>
+                  <td app-table-cell class="px-5 py-4"><a [routerLink]="['/tags', tag.id, 'edit']" class="text-brand-500 hover:underline">Editar</a></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>

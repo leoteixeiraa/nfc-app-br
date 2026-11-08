@@ -3,10 +3,13 @@ package br.com.nfcapp.tags;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -60,12 +63,13 @@ public class TagService {
         String destination = destinationFor(request);
         int inserted = jdbc.update("""
                 INSERT INTO nfc_tags
-                    (organization_id, public_code, label, destination_type, destination_label, management_token_hash, idempotency_key)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (organization_id, public_code, label, destination_type,                     destination_label, management_token_hash, idempotency_key, sale_price)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
                 """,
                 ANONYMOUS_ORGANIZATION_ID, code, request.name().trim(), request.type(),
-                normalizeDestinationLabel(request.destinationLabel()), tokenHash, normalizedKey);
+                                    normalizeDestinationLabel(request.destinationLabel()), tokenHash, normalizedKey,
+                                    normalizeSalePrice(request.salePrice()));
         if (inserted == 0) {
             ExistingTag previous = jdbc.queryForObject(
                     "SELECT public_code, management_token_hash FROM nfc_tags WHERE idempotency_key = ?",
@@ -89,6 +93,16 @@ public class TagService {
         validateRequest(request, false);
         String tokenHash = hashToken(managementToken);
         UUID tagId = findManagedTagId(code, tokenHash);
+        return updateTag(code, tagId, request);
+    }
+
+    @Transactional
+    public TagResponse updateForAccount(UUID userId, String code, TagRequest request) {
+        validateRequest(request, false);
+        return updateTag(code, findAccountTagId(userId, code), request);
+    }
+
+    private TagResponse updateTag(String code, UUID tagId, TagRequest request) {
         jdbc.update("UPDATE redirect_links SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE nfc_tag_id = ? AND is_active",
                 tagId);
         jdbc.update("""
@@ -97,15 +111,25 @@ public class TagService {
                 """, tagId, destinationFor(request), request.pixKey(), request.pixReceiverName(), request.pixCity());
         jdbc.update("""
                 UPDATE nfc_tags
-                SET label = ?, destination_type = ?, destination_label = ?, updated_at = CURRENT_TIMESTAMP
+                SET label = ?, destination_type = ?, destination_label = ?, sale_price = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-                """, request.name().trim(), request.type(), normalizeDestinationLabel(request.destinationLabel()), tagId);
+                """, request.name().trim(), request.type(), normalizeDestinationLabel(request.destinationLabel()),
+                normalizeSalePrice(request.salePrice()), tagId);
         return get(code);
     }
 
     @Transactional
     public void deactivate(String code, String managementToken) {
         UUID tagId = findManagedTagId(code, hashToken(managementToken));
+        deactivateTag(tagId);
+    }
+
+    @Transactional
+    public void deactivateForAccount(UUID userId, String code) {
+        deactivateTag(findAccountTagId(userId, code));
+    }
+
+    private void deactivateTag(UUID tagId) {
         jdbc.update("UPDATE redirect_links SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE nfc_tag_id = ? AND is_active",
                 tagId);
         jdbc.update("UPDATE nfc_tags SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", tagId);
@@ -114,7 +138,7 @@ public class TagService {
     public TagResponse get(String code) {
         return jdbc.query("""
                 SELECT tag.public_code, tag.label, tag.destination_type, tag.destination_label,
-                       tag.created_at, tag.updated_at, link.target_url, link.is_active,
+                       tag.sale_price, tag.created_at, tag.updated_at, link.target_url, link.is_active,
                        link.pix_key, link.pix_receiver_name, link.pix_city
                 FROM nfc_tags tag
                 LEFT JOIN redirect_links link ON link.nfc_tag_id = tag.id AND link.is_active
@@ -123,6 +147,7 @@ public class TagService {
             if (!rs.next()) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
             }
+
             String destination = rs.getString("target_url");
             String type = rs.getString("destination_type");
             String url = publicUrl(rs.getString("public_code"));
@@ -139,8 +164,50 @@ public class TagService {
                     rs.getString("destination_label"),
                     rs.getString("pix_key"),
                     rs.getString("pix_receiver_name"),
-                    rs.getString("pix_city"));
+                    rs.getString("pix_city"),
+                    rs.getBigDecimal("sale_price"));
         }, code);
+    }
+
+    @Transactional
+    public List<TagResponse> claimPublishedTags(UUID userId, List<TagClaim> claims) {
+        if (claims == null || claims.size() > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lista de placas inválida.");
+        }
+        var responses = new java.util.ArrayList<TagResponse>();
+        var seen = new java.util.HashSet<String>();
+        for (TagClaim claim : claims) {
+            if (claim == null || claim.code() == null || !claim.code().matches("[A-Za-z0-9_-]{24}")
+                    || !seen.add(claim.code())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lista de placas inválida.");
+            }
+            String tokenHash = hashToken(claim.managementToken());
+            var matches = jdbc.query("""
+                    SELECT management_token_hash, owner_user_id
+                    FROM nfc_tags WHERE public_code = ? FOR UPDATE
+                    """, (rs, row) -> new ClaimableTag(
+                            rs.getString("management_token_hash"), rs.getObject("owner_user_id", UUID.class)),
+                    claim.code());
+            if (matches.isEmpty() || matches.getFirst().tokenHash() == null
+                    || !MessageDigest.isEqual(matches.getFirst().tokenHash().getBytes(StandardCharsets.US_ASCII),
+                            tokenHash.getBytes(StandardCharsets.US_ASCII))) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Não foi possível vincular a placa.");
+            }
+            UUID owner = matches.getFirst().ownerId();
+            if (owner != null && !owner.equals(userId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível vincular a placa.");
+            }
+            if (owner == null) {
+                jdbc.update("UPDATE nfc_tags SET owner_user_id = ? WHERE public_code = ?", userId, claim.code());
+            }
+            responses.add(get(claim.code()));
+        }
+        return responses;
+    }
+
+    public List<TagResponse> listForAccount(UUID userId) {
+        return jdbc.query("SELECT public_code FROM nfc_tags WHERE owner_user_id = ? ORDER BY created_at DESC",
+                (rs, row) -> rs.getString("public_code"), userId).stream().map(this::get).toList();
     }
 
     public PublicDestination findPublicDestination(String code) {
@@ -208,7 +275,19 @@ public class TagService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Credencial de gerenciamento inválida.");
         }
         normalizeDestinationLabel(request.destinationLabel());
+        normalizeSalePrice(request.salePrice());
         destinationFor(request);
+    }
+
+    private BigDecimal normalizeSalePrice(BigDecimal price) {
+        if (price == null) {
+            return null;
+        }
+        if (price.signum() < 0 || price.stripTrailingZeros().scale() > 2 || price.precision() - price.scale() > 10) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "O valor da venda deve ser maior ou igual a zero, com até 2 casas decimais.");
+        }
+        return price.setScale(2, RoundingMode.UNNECESSARY);
     }
 
     private String normalizeDestinationLabel(String label) {
@@ -220,7 +299,7 @@ public class TagService {
 
     private UUID findManagedTagId(String code, String tokenHash) {
         var ids = jdbc.query(
-                "SELECT id, management_token_hash FROM nfc_tags WHERE public_code = ?",
+                "SELECT id, management_token_hash FROM nfc_tags WHERE public_code = ? AND owner_user_id IS NULL FOR UPDATE",
                 (rs, row) -> new ManagedTag(rs.getObject("id", UUID.class), rs.getString("management_token_hash")),
                 code);
         if (ids.isEmpty() || ids.getFirst().tokenHash() == null
@@ -229,6 +308,15 @@ public class TagService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
         }
         return ids.getFirst().id();
+    }
+
+    private UUID findAccountTagId(UUID userId, String code) {
+        var ids = jdbc.query("SELECT id FROM nfc_tags WHERE public_code = ? AND owner_user_id = ? FOR UPDATE",
+                (rs, row) -> rs.getObject("id", UUID.class), code, userId);
+        if (ids.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
+        }
+        return ids.getFirst();
     }
 
     private String hashToken(String token) {
@@ -284,6 +372,12 @@ public class TagService {
     private record ManagedTag(UUID id, String tokenHash) {
     }
 
+    private record ClaimableTag(String tokenHash, UUID ownerId) {
+    }
+
+    public record TagClaim(String code, String managementToken) {
+    }
+
     public record TagRequest(
             String name,
             String type,
@@ -292,7 +386,8 @@ public class TagService {
             String pixReceiverName,
             String pixCity,
             String destinationLabel,
-            String managementToken) {
+            String managementToken,
+            BigDecimal salePrice) {
     }
 
     public record TagResponse(
@@ -308,7 +403,8 @@ public class TagService {
             String destinationLabel,
             String pixKey,
             String pixReceiverName,
-            String pixCity) {
+            String pixCity,
+            BigDecimal salePrice) {
     }
 
     public record PublicDestination(String type, String name, String target) {

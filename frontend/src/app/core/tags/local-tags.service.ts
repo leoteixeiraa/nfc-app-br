@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { isNfcTagType, NfcTag, NfcTagInput, validateTagInput } from './nfc-tag';
+import { isNfcTagType, isValidSalePrice, NfcTag, NfcTagInput, validateTagInput } from './nfc-tag';
 
 export const LOCAL_TAGS_STORAGE_KEY = 'nfcapp.tags.v1';
 
@@ -78,6 +78,14 @@ export class LocalTagsService {
     this.writeAll([tag, ...tags.filter((current) => current.id !== tag.id)]);
   }
 
+  clearAll(): void {
+    try {
+      localStorage.removeItem(LOCAL_TAGS_STORAGE_KEY);
+    } catch {
+      throw new LocalTagsError('unavailable', 'Não foi possível limpar as placas deste navegador.');
+    }
+  }
+
   remove(id: string): void {
     const tags = this.readAll();
     if (!tags.some((tag) => tag.id === id)) {
@@ -95,6 +103,7 @@ export class LocalTagsService {
       pixKey: input.pixKey?.trim() || undefined,
       pixReceiverName: input.pixReceiverName?.trim() || undefined,
       pixCity: input.pixCity?.trim() || undefined,
+      salePrice: input.salePrice,
     };
     const error = validateTagInput(normalized);
     if (error) {
@@ -109,7 +118,7 @@ export class LocalTagsService {
     try {
       raw = localStorage.getItem(LOCAL_TAGS_STORAGE_KEY);
     } catch {
-      throw new LocalTagsError('unavailable', 'O armazenamento local do navegador não está disponível.');
+      throw new LocalTagsError('unavailable', 'Não foi possível acessar suas placas neste navegador. Verifique as permissões e tente novamente.');
     }
 
     if (raw === null) {
@@ -158,12 +167,14 @@ export class LocalTagsService {
       isNfcTagType(tag['type']) &&
       (tag['publicUrl'] === undefined || typeof tag['publicUrl'] === 'string') &&
       (tag['managementToken'] === undefined || typeof tag['managementToken'] === 'string') &&
+      (tag['accountOwned'] === undefined || typeof tag['accountOwned'] === 'boolean') &&
       (tag['qrCodeDataUri'] === undefined || typeof tag['qrCodeDataUri'] === 'string') &&
       (tag['active'] === undefined || typeof tag['active'] === 'boolean') &&
       (tag['destinationLabel'] === undefined || typeof tag['destinationLabel'] === 'string') &&
       (tag['pixKey'] === undefined || typeof tag['pixKey'] === 'string') &&
       (tag['pixReceiverName'] === undefined || typeof tag['pixReceiverName'] === 'string') &&
       (tag['pixCity'] === undefined || typeof tag['pixCity'] === 'string') &&
+      (tag['salePrice'] === undefined || isValidSalePrice(tag['salePrice'])) &&
       validateTagInput({
         name: tag['name'],
         type: tag['type'],
@@ -175,7 +186,7 @@ export class LocalTagsService {
   private corruptedError(): LocalTagsError {
     return new LocalTagsError(
       'corrupted',
-      `Os dados salvos em "${LOCAL_TAGS_STORAGE_KEY}" estão inválidos. Eles foram mantidos sem alteração para não perder informações.`,
+      'Não foi possível ler suas placas. Seus dados foram mantidos sem alteração para evitar perdas.',
     );
   }
 }

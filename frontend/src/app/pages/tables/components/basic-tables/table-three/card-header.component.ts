@@ -16,7 +16,7 @@ import { InputDirective } from '../../../../../shared/components/ui/input/input.
     >
       <div>
         <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-          Latest Transactions
+          {{ title }}
         </h3>
       </div>
 
@@ -46,13 +46,15 @@ import { InputDirective } from '../../../../../shared/components/ui/input/input.
           </div>
           <input app-input unstyled
             type="text"
-            placeholder="Search..."
+            [placeholder]="placeholder"
+            [attr.aria-label]="placeholder"
             [ngModel]="searchQuery"
             (ngModelChange)="searchChange.emit($event)"
             class="h-full flex-1 rounded-none border-0 bg-transparent ps-2 pe-4 text-sm font-normal text-gray-800 shadow-none ring-0 outline-hidden placeholder:text-gray-400 focus:outline-hidden focus:ring-0 dark:bg-transparent dark:text-white/90 dark:placeholder:text-gray-500"
           />
         </div>
 
+        @if (showDateFilter) {
         <button app-button variant="unstyled"
           type="button"
           class="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-gray-300 bg-transparent px-3.5 text-sm font-medium whitespace-nowrap text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 focus-visible:ring-3 focus-visible:ring-gray-300/50 sm:px-4 sm:py-2.5 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
@@ -74,11 +76,15 @@ import { InputDirective } from '../../../../../shared/components/ui/input/input.
           </svg>
           <span class="hidden sm:inline">05 Feb - 06 March</span>
         </button>
+        }
       </div>
     </div>
   `,
 })
 export class CardHeaderComponent {
+  @Input() title = 'Latest Transactions';
+  @Input() placeholder = 'Search...';
+  @Input() showDateFilter = true;
   @Input() searchQuery = '';
   @Output() searchChange = new EventEmitter<string>();
   @Input() className = '';

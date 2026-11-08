@@ -3,13 +3,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { AuthSessionStore } from '../../../core/auth/auth-session.store';
 import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
+import { LocalClientsService } from '../../../core/clients/local-clients.service';
+import { TagAccountSyncService } from '../../../core/tags/tag-account-sync.service';
 import {
+  formatBrl,
+  formatCurrencyMask,
   NfcTag,
   NfcTagInput,
   NfcTagType,
-  tagTypeLabel,
+  parseCurrencyMask,
   validateDestinationUrl,
   validateTagName,
 } from '../../../core/tags/nfc-tag';
@@ -28,13 +33,15 @@ const FIELD_CLASSES =
   templateUrl: './tag-form.component.html',
 })
 export class TagFormComponent {
+  readonly session = inject(AuthSessionStore);
   private readonly localTags = inject(LocalTagsService);
+  private readonly localClients = inject(LocalClientsService);
   private readonly tagsApi = inject(TagsApiService);
+  private readonly tagSync = inject(TagAccountSyncService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly fieldClasses = FIELD_CLASSES;
-  readonly typeLabel = tagTypeLabel;
   readonly submitError = signal('');
   readonly notFound = signal(false);
   readonly isSaving = signal(false);
@@ -46,10 +53,10 @@ export class TagFormComponent {
   readonly manualGoogle = signal(false);
   readonly reviewMode = signal(false);
   readonly createdTag = signal<NfcTag | null>(null);
-  readonly writingTag = signal(false);
   readonly pixPreview = signal<PixPreview | null>(null);
   readonly tagId: string | null = inject(ActivatedRoute).snapshot.paramMap.get('id');
   private managementToken = '';
+  private accountOwned = false;
   private idempotencyKey = '';
   private legacyTagId: string | null = null;
 
@@ -60,6 +67,7 @@ export class TagFormComponent {
     placeSearch: [''],
     pixKey: [''],
     pixCity: [''],
+    salePrice: [''],
   });
 
   constructor() {
@@ -237,6 +245,11 @@ export class TagFormComponent {
     this.reviewMode.set(true);
   }
 
+  maskSalePrice(): void {
+    const control = this.form.controls.salePrice;
+    control.setValue(formatCurrencyMask(control.value), { emitEvent: false });
+  }
+
   backToForm(): void {
     this.reviewMode.set(false);
     this.submitError.set('');
@@ -249,8 +262,8 @@ export class TagFormComponent {
     this.submitError.set('');
     this.isSaving.set(true);
     const input = this.toInput();
-    const isRemoteEdit = Boolean(this.tagId && this.managementToken);
-    if (!this.managementToken) {
+    const isRemoteEdit = Boolean(this.tagId && (this.managementToken || this.accountOwned));
+    if (!this.managementToken && !this.accountOwned) {
       this.managementToken = this.randomToken();
     }
     if (!isRemoteEdit && !this.idempotencyKey) {
@@ -258,18 +271,29 @@ export class TagFormComponent {
     }
 
     const request = isRemoteEdit
-      ? this.tagsApi.update(this.tagId!, input, this.managementToken)
+      ? this.tagsApi.update(this.tagId!, input, this.managementToken || null)
       : this.tagsApi.create(input, this.managementToken, this.idempotencyKey);
     request.subscribe({
       next: (tag) => {
+        try {
+          const place = this.selectedPlace();
+          this.localClients.setPlace(tag, place && 'reviewUrl' in place ? place : null);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Erro inesperado.';
+          this.submitError.set(`A placa foi publicada, mas o vínculo não foi salvo: ${message} Edite e salve a placa novamente para tentar de novo.`);
+        }
         if (this.legacyTagId) {
           try {
             this.localTags.remove(this.legacyTagId);
+            this.localClients.forgetTag(this.legacyTagId);
           } catch (error) {
             this.submitError.set(error instanceof LocalTagsError ? error.message : 'A placa foi publicada, mas o rascunho antigo não foi removido.');
           }
         }
         this.createdTag.set(tag);
+        if (!isRemoteEdit) {
+          this.tagSync.refresh();
+        }
         this.isSaving.set(false);
       },
       error: (error: unknown) => {
@@ -277,18 +301,6 @@ export class TagFormComponent {
         this.isSaving.set(false);
       },
     });
-  }
-
-  async copyLink(tag: NfcTag): Promise<void> {
-    if (!tag.publicUrl) {
-      this.submitError.set('Esta placa antiga ainda não possui um link público.');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(tag.publicUrl);
-    } catch {
-      this.submitError.set('Não foi possível copiar o link. Verifique a permissão do navegador.');
-    }
   }
 
   async copyValue(value: string): Promise<void> {
@@ -306,17 +318,6 @@ export class TagFormComponent {
     }
   }
 
-  downloadQr(tag: NfcTag): void {
-    if (!tag.qrCodeDataUri) {
-      this.submitError.set('O QR Code desta placa não está disponível.');
-      return;
-    }
-    const anchor = document.createElement('a');
-    anchor.href = tag.qrCodeDataUri;
-    anchor.download = `nfc-app-${tag.id}.svg`;
-    anchor.click();
-  }
-
   private toInput(): NfcTagInput {
     const values = this.form.getRawValue();
     const type = values.type;
@@ -330,6 +331,7 @@ export class TagFormComponent {
       pixKey: type === 'pix' ? values.pixKey.trim() : undefined,
       pixReceiverName: type === 'pix' ? values.name.trim() : undefined,
       pixCity: type === 'pix' ? values.pixCity.trim() : undefined,
+      salePrice: parseCurrencyMask(values.salePrice),
     };
   }
 
@@ -353,11 +355,16 @@ export class TagFormComponent {
               : tag.destinationUrl,
         pixKey: tag.pixKey ?? '',
         pixCity: tag.pixCity ?? '',
+        salePrice: tag.salePrice === undefined ? '' : formatBrl(tag.salePrice),
       });
       this.managementToken = tag.managementToken ?? '';
-      this.legacyTagId = tag.managementToken ? null : tag.id;
+      this.accountOwned = Boolean(tag.accountOwned);
+      this.legacyTagId = tag.managementToken || tag.accountOwned ? null : tag.id;
       if (tag.type === 'google-review' && tag.destinationLabel) {
-        this.selectedPlace.set({ placeId: '', name: tag.destinationLabel, address: '' });
+        const place = this.localClients.placeForTag(tag);
+        this.selectedPlace.set(place
+          ? { ...place, photoUrl: null, photoAttributions: [] }
+          : { placeId: '', name: tag.destinationLabel, address: '' });
         this.manualGoogle.set(true);
       }
     } catch (error) {

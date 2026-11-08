@@ -1,4 +1,64 @@
 <div>
+  <app-page-breadcrumb pageTitle="Meu perfil" />
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 lg:p-6 dark:border-gray-800 dark:bg-white/3">
+    <div class="mb-6">
+      <h1 class="text-lg font-semibold text-gray-800 dark:text-white/90">Meu perfil</h1>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Informações da sua conta Google. Esses dados não podem ser editados aqui.
+      </p>
+    </div>
+
+    @if (sessionStore.currentUser(); as user) {
+      <section
+        aria-label="Dados da conta Google"
+        class="rounded-xl border border-gray-200 p-5 dark:border-gray-700"
+      >
+        <div class="flex items-center gap-4">
+          <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xl font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            @if (user.pictureUrl) {
+              <img
+                [src]="user.pictureUrl"
+                [alt]="'Foto de perfil de ' + (user.name || user.email)"
+                class="size-full object-cover"
+                referrerpolicy="no-referrer"
+              />
+            } @else {
+              {{ (user.name || user.email).charAt(0).toUpperCase() }}
+            }
+          </div>
+          <div class="min-w-0">
+            <h2 class="truncate text-base font-semibold text-gray-800 dark:text-white/90">
+              {{ user.name || 'Conta Google' }}
+            </h2>
+            <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ user.email }}</p>
+          </div>
+        </div>
+
+        <dl class="mt-6 grid gap-5 border-t border-gray-200 pt-5 sm:grid-cols-2 dark:border-gray-700">
+          <div>
+            <dt class="text-sm text-gray-500 dark:text-gray-400">Nome</dt>
+            <dd class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">
+              {{ user.name || 'Não informado pela conta Google' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm text-gray-500 dark:text-gray-400">E-mail</dt>
+            <dd class="mt-1 break-all text-sm font-medium text-gray-800 dark:text-white/90">
+              {{ user.email }}
+            </dd>
+          </div>
+        </dl>
+      </section>
+    } @else {
+      <p role="status" class="text-sm text-gray-500 dark:text-gray-400">
+        Não foi possível carregar os dados do perfil.
+      </p>
+    }
+  </div>
+</div>
+
+<!-- Seções originais do template TailAdmin, preservadas para uso futuro:
+<div>
   <app-page-breadcrumb pageTitle="Profile" />
   <div class="rounded-2xl border border-gray-200 bg-white p-5 lg:p-6 dark:border-gray-800 dark:bg-white/3">
     <h3 class="mb-5 text-lg font-semibold text-gray-800 lg:mb-7 dark:text-white/90">
@@ -12,3 +72,4 @@
     </div>
   </div>
 </div>
+-->

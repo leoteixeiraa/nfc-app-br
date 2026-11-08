@@ -7,7 +7,7 @@
   routerLink="/signin"
   class="text-gray-700 dark:text-gray-300"
 >
-  Entrar
+  Entrar / Criar conta
 </a>
 } @else {
 <div class="relative">
@@ -66,7 +66,7 @@
 
       <div class="-mx-3 my-1.5 h-px bg-gray-100 dark:bg-gray-700"></div>
 
-      <!-- Edit Profile -->
+      <!-- Ver perfil -->
       <a
         routerLink="/profile"
         (click)="closeDropdown()"
@@ -87,10 +87,11 @@
             d="M17.775 19.107v-.261a4.5 4.5 0 00-4.5-4.5h-2.55a4.5 4.5 0 00-4.5 4.5v.261M21.25 12a9.25 9.25 0 11-18.5 0 9.25 9.25 0 0118.5 0zm-6.483-2.732a2.768 2.768 0 11-5.536 0 2.768 2.768 0 015.536 0z"
           />
         </svg>
-        Edit profile
+        Ver perfil
       </a>
 
       <!-- Account Settings -->
+      <!-- Opção de configurações do template, preservada para uso futuro.
       <a
         routerLink="/profile"
         (click)="closeDropdown()"
@@ -116,8 +117,10 @@
         </svg>
         Account settings
       </a>
+      -->
 
       <!-- Support -->
+      <!-- Opção de suporte do template, preservada para uso futuro.
       <a
         routerLink="/profile"
         (click)="closeDropdown()"
@@ -141,8 +144,11 @@
         </svg>
         Support
       </a>
+      -->
 
       <!-- Language Submenu Item -->
+      <!-- Seletor de idioma do template, preservado para uso futuro. -->
+      <!--
       <div
         class="relative"
         (mouseenter)="openSubDropdown()"
@@ -187,8 +193,10 @@
             />
           </span>
         </button>
+      -->
 
-        <!-- Submenu Flyout -->
+      <!-- Submenu Flyout -->
+      <!--
         @if (subDropdownOpen) {
           <div
             class="absolute top-11 start-[-8px] z-50 flex w-56 flex-col gap-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-lg md:top-0 md:end-[calc(100%+14px)] md:start-auto dark:border-gray-800 dark:bg-[#1E2635]"
@@ -232,7 +240,10 @@
             }
           </div>
         }
+      -->
+      <!--
       </div>
+      -->
 
       <!-- Separator -->
       <div class="-mx-3 my-1.5 h-px bg-gray-100 dark:bg-gray-700"></div>

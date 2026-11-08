@@ -68,13 +68,15 @@ class TagControllerTest {
                 "https://lh3.googleusercontent.com/photo",
                 java.util.List.of(new GooglePlacesService.PhotoAttribution("Autor", "https://maps.google.com/")),
                 "https://www.google.com/maps/place/",
-                "https://search.google.com/local/writereview?placeid=example");
-        when(places.details(details.placeId())).thenReturn(details);
+                "https://search.google.com/local/writereview?placeid=example",
+                java.util.List.of(new GooglePlacesService.PlaceReview("Maria", null, 5.0, "Ótimo", "2026-01-01T00:00:00Z", "há um ano", null)),
+                "Padaria", "11 9999-9999", "https://example.com");
+        when(places.details(details.placeId(), true)).thenReturn(details);
 
         assertEquals(
                 details,
-                controller.placeDetails(details.placeId(), new MockHttpServletRequest()));
-        verify(places).details(details.placeId());
+                controller.placeDetails(details.placeId(), true, new MockHttpServletRequest()));
+        verify(places).details(details.placeId(), true);
     }
 
     @Test
@@ -144,7 +146,7 @@ class TagControllerTest {
     }
 
     private TagService.TagRequest request(String name, String destination) {
-        return new TagService.TagRequest(name, "url", destination, null, null, null, null, null);
+        return new TagService.TagRequest(name, "url", destination, null, null, null, null, null, null);
     }
 
     private TagService.TagResponse response(String id) {
@@ -158,6 +160,7 @@ class TagControllerTest {
                 "2026-01-01T00:00:00Z",
                 true,
                 "data:image/svg+xml;base64,qr",
+                null,
                 null,
                 null,
                 null,

@@ -67,30 +67,29 @@ describe('TagWriteComponent', () => {
   });
 
   it('só confirma sucesso após gravar a URL dinâmica', async () => {
-    component.confirmOverwrite.set(true);
     const writing = component.write();
     expect(component.state()).toBe('waiting');
     expect(FakeReader.written).toEqual({ records: [{ recordType: 'url', data: config.publicUrl }] });
-    expect(FakeReader.options.overwrite).toBeTrue();
+    expect(FakeReader.options.overwrite).toBeFalse();
     FakeReader.resolveWrite();
     await writing;
     expect(component.state()).toBe('success');
   });
 
-  it('exige confirmação antes de substituir o conteúdo', async () => {
+  it('não permite substituir conteúdo sem identificação e confirmação', async () => {
     FakeReader.written = undefined;
-    await component.write();
+    await component.write(true);
     expect(FakeReader.written).toBeUndefined();
   });
 
   it('mostra erro de permissão e permite nova tentativa', async () => {
-    component.confirmOverwrite.set(true);
     const writing = component.write();
     FakeReader.rejectWrite(new DOMException('Denied', 'NotAllowedError'));
     await writing;
     expect(component.state()).toBe('error');
-    expect(component.message()).toContain('Permissão NFC');
-    component.confirmOverwrite.set(true);
+    expect(component.message()).toContain('permita o NFC');
+    expect(component.confirmOverwrite()).toBeFalse();
+    expect(component.canInspectExisting()).toBeTrue();
     const retry = component.write();
     FakeReader.resolveWrite();
     await retry;
@@ -98,7 +97,6 @@ describe('TagWriteComponent', () => {
   });
 
   it('identifica falha de acesso ao cartão sem indicar sucesso', async () => {
-    component.confirmOverwrite.set(true);
     const writing = component.write();
     FakeReader.rejectWrite(new DOMException('Falha', 'NotReadableError'));
     await writing;
@@ -107,7 +105,6 @@ describe('TagWriteComponent', () => {
   });
 
   it('cancela a operação sem indicar sucesso tardio', async () => {
-    component.confirmOverwrite.set(true);
     const writing = component.write();
     const signal = FakeReader.options.signal;
     component.cancel();
@@ -115,6 +112,51 @@ describe('TagWriteComponent', () => {
     FakeReader.resolveWrite();
     await writing;
     expect(component.state()).toBe('idle');
+  });
+
+  it('solicita confirmação somente após identificar dados e permite regravar', async () => {
+    const firstWrite = component.write();
+    FakeReader.rejectWrite(new DOMException('Existem dados ou falta permissão', 'NotAllowedError'));
+    await firstWrite;
+    await component.read(true);
+    FakeReader.instance.dispatchEvent(Object.assign(new Event('reading'), {
+      message: { records: [{ recordType: 'text' }] },
+    }));
+    expect(component.confirmOverwrite()).toBeTrue();
+    const writing = component.write(true);
+    expect(FakeReader.options.overwrite).toBeTrue();
+    expect(component.state()).toBe('waiting');
+    FakeReader.resolveWrite();
+    await writing;
+    expect(component.state()).toBe('success');
+  });
+
+  it('não solicita confirmação quando a leitura indica cartão vazio', async () => {
+    await component.read(true);
+    FakeReader.instance.dispatchEvent(Object.assign(new Event('reading'), {
+      message: { records: [{ recordType: 'empty' }] },
+    }));
+    expect(component.confirmOverwrite()).toBeFalse();
+    expect(component.message()).toContain('Nenhum conteúdo');
+  });
+
+  it('não autoriza sobrescrita quando não consegue ler a placa', async () => {
+    await component.read(true);
+    FakeReader.instance.dispatchEvent(new Event('readingerror'));
+    expect(component.state()).toBe('error');
+    expect(component.confirmOverwrite()).toBeFalse();
+    expect(component.message()).toContain('compatível');
+  });
+
+  it('descarta leitura tardia e autorização após cancelamento', async () => {
+    await component.read(true);
+    const reader = FakeReader.instance;
+    component.cancel();
+    reader.dispatchEvent(Object.assign(new Event('reading'), {
+      message: { records: [{ recordType: 'text' }] },
+    }));
+    expect(component.state()).toBe('idle');
+    expect(component.confirmOverwrite()).toBeFalse();
   });
 
   it('valida o conteúdo lido e rejeita outro endereço', async () => {
@@ -162,5 +204,38 @@ describe('TagWriteComponent', () => {
     spyOnProperty(navigator, 'userAgent', 'get').and.returnValue('Mozilla/5.0 (Linux; Android 14)');
     Reflect.deleteProperty(window, 'NDEFReader');
     expect(TestBed.createComponent(TagWriteComponent).componentInstance.supported).toBeFalse();
+  });
+
+  it('exibe botão de gravação direta no Android e mantém QR do link opcional', () => {
+    spyOnProperty(navigator, 'userAgent', 'get').and.returnValue('Mozilla/5.0 (Linux; Android 14)');
+    const fixture = TestBed.createComponent(TagWriteComponent);
+    Object.defineProperty(fixture.componentInstance, 'supported', { value: true });
+    fixture.componentInstance.linkQrCodeDataUri = 'data:image/svg+xml;base64,cXI=';
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('summary')?.textContent).toContain('QR Code do link (opcional)');
+    expect(element.querySelector('details')?.open).toBeFalse();
+    expect(element.textContent).not.toContain('Leia este QR Code com o celular');
+    const button = Array.from(element.querySelectorAll('button')).find((item) => item.textContent?.includes('Gravar placa NFC'));
+    expect(button).toBeDefined();
+    button?.click();
+    expect(FakeReader.options.overwrite).toBeFalse();
+    expect(fixture.componentInstance.state()).toBe('waiting');
+    fixture.destroy();
+  });
+
+  it('oferece copiar no iPhone e QR para continuação no computador', () => {
+    const agent = spyOnProperty(navigator, 'userAgent', 'get');
+    agent.and.returnValue('Mozilla/5.0 (iPhone; CPU iPhone OS)');
+    const iphone = TestBed.createComponent(TagWriteComponent);
+    iphone.detectChanges();
+    expect((iphone.nativeElement as HTMLElement).textContent).toContain('aplicativo NFC');
+    expect((iphone.nativeElement as HTMLElement).textContent).toContain('Copiar link');
+    expect((iphone.nativeElement as HTMLElement).textContent).not.toContain('Leia este QR Code');
+    agent.and.returnValue('Mozilla/5.0 (Windows NT 10.0)');
+    const desktop = TestBed.createComponent(TagWriteComponent);
+    desktop.detectChanges();
+    expect((desktop.nativeElement as HTMLElement).textContent).toContain('Leia este QR Code com o celular');
+    expect((desktop.nativeElement as HTMLElement).textContent).toContain('apenas no navegador original');
   });
 });

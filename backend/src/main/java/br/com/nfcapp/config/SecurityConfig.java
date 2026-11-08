@@ -35,6 +35,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/t/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+                        .requestMatchers("/api/account/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(unauthorizedEntryPoint()))

@@ -1,5 +1,7 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { Client } from '../../../../../core/clients/local-clients.service';
 import { CardFooterComponent } from './card-footer.component';
 import { CardHeaderComponent } from './card-header.component';
 import { latestTransactionsData } from './data';
@@ -13,7 +15,7 @@ import { TABLE_IMPORTS } from '../../../../../shared/components/ui/table';
     CommonModule,
     CardHeaderComponent,
     CardFooterComponent,
-    TransactionRowComponent,
+    TransactionRowComponent, RouterLink,
   ],
   host: {
     class: 'block',
@@ -25,10 +27,44 @@ import { TABLE_IMPORTS } from '../../../../../shared/components/ui/table';
       <!-- Table Header Controls -->
       <app-table-three-card-header
         [searchQuery]="searchQuery"
+        [title]="clients ? 'Clientes' : 'Latest Transactions'"
+        [placeholder]="clients ? 'Buscar clientes...' : 'Search...'"
+        [showDateFilter]="!clients"
         (searchChange)="onSearchChange($event)"
       />
 
       <!-- Table Content -->
+      @if (clients) {
+        <div class="w-full max-w-full overflow-x-auto">
+          <table app-table class="min-w-full">
+            <thead app-table-header class="border-y border-gray-100 dark:border-gray-800">
+              <tr app-table-row>
+                @for (heading of clientHeadings; track heading) {
+                  <th app-table-cell class="h-11 px-4 py-3 text-start text-sm font-normal text-gray-500 dark:text-gray-400">{{ heading }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody app-table-body class="divide-y divide-gray-100 dark:divide-gray-800">
+              @for (client of pagedClients; track client.placeId) {
+                <tr app-table-row>
+                  <td app-table-cell class="px-4 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{{ client.name }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">{{ client.category || 'Não disponível' }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">{{ client.address || 'Não disponível' }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">{{ client.createdAt | date:'dd/MM/yyyy' }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">{{ client.tags.length }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">{{ client.statistics.total }}</td>
+                  <td app-table-cell class="px-4 py-4 text-sm">
+                    <a class="text-brand-500 hover:underline" [routerLink]="['/clientes', client.placeId]">Detalhes</a>
+                    <button type="button" class="ml-3 text-brand-500 hover:underline disabled:opacity-50" [disabled]="reportLoading" (click)="report.emit(client)">Relatório PDF</button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr app-table-row><td app-table-cell colspan="7" class="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">Nenhum cliente encontrado.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
       <div class="p-0">
         <div class="w-full max-w-full overflow-x-auto">
           <table app-table class="min-w-full">
@@ -114,11 +150,15 @@ import { TABLE_IMPORTS } from '../../../../../shared/components/ui/table';
           </table>
         </div>
       </div>
+      }
 
       <!-- Table Footer - Pagination -->
       <app-table-three-card-footer
         [currentPage]="currentPage"
-        [totalPages]="10"
+        [totalPages]="clients ? clientTotalPages : 10"
+        [previousLabel]="clients ? 'Página anterior' : 'Previous page'"
+        [nextLabel]="clients ? 'Próxima página' : 'Next page'"
+        [paginationLabel]="clients ? 'Paginação' : 'Pagination'"
         (pageChange)="currentPage = $event"
       />
     </div>
@@ -126,10 +166,29 @@ import { TABLE_IMPORTS } from '../../../../../shared/components/ui/table';
 })
 export class TableThreeComponent {
   @Input() data: Transaction[] = latestTransactionsData;
+  @Input() clients: Client[] | null = null;
+  @Input() reportLoading = false;
+  @Output() report = new EventEmitter<Client>();
   @Input() className = '';
+  readonly clientHeadings = ['Estabelecimento', 'Categoria', 'Endereço', 'Cadastro', 'Placas', 'Scans', 'Ações'];
 
   searchQuery = '';
   currentPage = 1;
+
+  get filteredClients(): Client[] {
+    const query = this.searchQuery.trim().toLocaleLowerCase('pt-BR');
+    return (this.clients ?? []).filter((client) =>
+      [client.name, client.category ?? '', client.address].some((value) => value.toLocaleLowerCase('pt-BR').includes(query)));
+  }
+
+  get clientTotalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredClients.length / 10));
+  }
+
+  get pagedClients(): Client[] {
+    const page = Math.min(this.currentPage, this.clientTotalPages);
+    return this.filteredClients.slice((page - 1) * 10, page * 10);
+  }
 
   get filteredTransactions(): Transaction[] {
     const query = this.searchQuery.trim().toLowerCase();
@@ -147,5 +206,6 @@ export class TableThreeComponent {
 
   onSearchChange(query: string) {
     this.searchQuery = query;
+    this.currentPage = 1;
   }
 }

@@ -6,6 +6,7 @@ import { DropdownService } from '../../../services/dropdown.service';
 import { ButtonComponent } from '../../ui/button/button.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthSessionStore } from '../../../../core/auth/auth-session.store';
+import { LogoutBlockedError } from '../../../../core/tags/tag-account-sync.service';
 
 interface Language {
   id: string;
@@ -115,9 +116,11 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
         this.closeDropdown();
         void this.router.navigateByUrl('/signin');
       },
-      error: () => {
+      error: (error: unknown) => {
         this.isLoggingOut = false;
-        this.logoutError = 'Não foi possível encerrar a sessão. Tente novamente.';
+        this.logoutError = error instanceof LogoutBlockedError
+          ? error.message
+          : 'Não foi possível encerrar a sessão. Tente novamente.';
       },
     });
   }

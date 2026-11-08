@@ -1,46 +1,20 @@
 <div class="mx-auto max-w-3xl">
   @if (createdTag(); as published) {
-    @if (writingTag()) {
-      <app-tag-write [code]="published.id" />
-    } @else {
-    <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-8 dark:border-gray-800 dark:bg-white/3">
-      <div>
-        <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Placa criada com sucesso</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          O link foi gerado. Continue para gravar e testar sua placa NFC.
-        </p>
-      </div>
-      <div class="flex flex-col items-center gap-5 rounded-xl bg-gray-50 p-5 dark:bg-gray-800 sm:flex-row">
-        <img [src]="published.qrCodeDataUri" alt="QR Code NFC.APP da placa" class="h-52 w-52" />
-        <div class="min-w-0 space-y-2 text-center sm:text-left">
-          <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ published.name }}</h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ typeLabel(published.type) }}</p>
-          <p class="break-all text-sm text-brand-500">{{ published.publicUrl }}</p>
-          @if (published.type === 'pix') {
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              O QR Code acima abre a página da placa. O QR Code de pagamento Pix é exibido nessa página.
-            </p>
-          }
-        </div>
-      </div>
-      @if (submitError()) {
-        <p role="alert" class="text-sm text-error-500">{{ submitError() }}</p>
-      }
-      <div class="flex flex-wrap gap-3">
-        <button app-button type="button" (click)="writingTag.set(true)">Gravar placa NFC</button>
-        <button app-button type="button" (click)="copyLink(published)">Copiar link</button>
-        <button app-button variant="outline" type="button" (click)="downloadQr(published)">Baixar QR Code</button>
-        <a app-button variant="outline" [href]="published.publicUrl" target="_blank" rel="noopener noreferrer">
-          Testar placa
-        </a>
-        <a app-button variant="outline" routerLink="/">Voltar para minhas placas</a>
-      </div>
-    </section>
+    @if (submitError()) {
+      <p role="alert" class="mb-4 text-sm text-error-500">{{ submitError() }}</p>
     }
+    <div role="status" class="mb-4 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+      {{ isEditing ? 'Sua placa foi atualizada' : 'Sua placa foi criada' }} e está salva neste dispositivo e navegador, não na conta. Mantenha os dados do navegador para continuar acessando sua placa.
+      @if (!session.currentUser()) {
+        <span class="ml-1">Gostou da experiência?</span>
+        <a routerLink="/signup" class="ml-1 font-medium underline">Crie sua conta</a>
+      }
+    </div>
+    <app-tag-write [code]="published.id" [linkQrCodeDataUri]="published.qrCodeDataUri" />
   } @else if (notFound()) {
     <div role="alert" class="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">
       <p>{{ submitError() || 'Placa não encontrada neste navegador.' }}</p>
-      <a app-button variant="outline" routerLink="/">Voltar às placas</a>
+      <a app-button variant="outline" routerLink="/tags">Voltar às placas</a>
     </div>
   } @else if (reviewMode()) {
     <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 dark:border-gray-800 dark:bg-white/3">
@@ -58,6 +32,10 @@
           <dd class="mt-1 text-gray-500 dark:text-gray-400">
             {{ type === 'google-review' ? 'Google Avaliações' : type === 'pix' ? 'Pix' : type === 'whatsapp' ? 'WhatsApp' : 'Link personalizado' }}
           </dd>
+        </div>
+        <div>
+          <dt class="font-medium text-gray-700 dark:text-gray-300">Valor da venda</dt>
+          <dd class="mt-1 text-gray-500 dark:text-gray-400">{{ form.controls.salePrice.value || 'Não informado' }}</dd>
         </div>
         @if (type === 'pix' && pixPreview(); as preview) {
           <div class="flex flex-col items-center gap-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-800 sm:flex-row">
@@ -274,13 +252,21 @@
         </div>
       }
 
+      <div class="space-y-2">
+        <label for="tag-sale-price" class="text-sm font-medium text-gray-700 dark:text-gray-400">Valor da venda (R$)</label>
+        <input app-input unstyled id="tag-sale-price" type="text" inputmode="numeric" autocomplete="off"
+          formControlName="salePrice" placeholder="R$ 0,00" maxlength="20" [className]="fieldClasses"
+          (input)="maskSalePrice()" />
+        <p class="text-xs text-gray-500 dark:text-gray-400">Opcional. Preço de venda da placa física.</p>
+      </div>
+
       @if (submitError()) {
         <div role="alert" class="rounded-xl border border-error-500 bg-error-50 p-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-500">
           {{ submitError() }}
         </div>
       }
       <div class="flex flex-wrap justify-end gap-3">
-        <a app-button variant="outline" routerLink="/">Cancelar</a>
+        <a app-button variant="outline" routerLink="/tags">Cancelar</a>
         <button app-button type="submit" [disabled]="isSaving()">
           {{ isSaving() ? 'Preparando...' : 'Continuar' }}
         </button>

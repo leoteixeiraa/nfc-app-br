@@ -13,8 +13,11 @@ export interface NfcTag {
   pixCity?: string;
   publicUrl?: string;
   managementToken?: string;
+  /** Placa publicada que pertence à conta e é gerenciada sem token local. */
+  accountOwned?: boolean;
   qrCodeDataUri?: string;
   active?: boolean;
+  salePrice?: number;
 }
 
 export interface NfcTagInput {
@@ -25,6 +28,30 @@ export interface NfcTagInput {
   pixKey?: string;
   pixReceiverName?: string;
   pixCity?: string;
+  salePrice?: number;
+}
+
+/** Converte os dígitos digitados em centavos para a máscara "R$ 49,90". */
+export function formatCurrencyMask(rawValue: string): string {
+  const digits = rawValue.replace(/\D/g, '').replace(/^0+/, '');
+  if (!digits) {
+    return '';
+  }
+  return formatBrl(Number(digits) / 100);
+}
+
+export function formatBrl(value: number): string {
+  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Valor mascarado → número; vazio resulta em undefined (campo opcional). */
+export function parseCurrencyMask(maskedValue: string): number | undefined {
+  const digits = maskedValue.replace(/\D/g, '');
+  return digits ? Number(digits) / 100 : undefined;
+}
+
+export function isValidSalePrice(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value < 1e10;
 }
 
 export const NFC_TAG_TYPES: readonly { value: NfcTagType; label: string }[] = [
@@ -113,7 +140,13 @@ export function validateTagInput(input: NfcTagInput): string | null {
   if (!isNfcTagType(input.type)) {
     return 'Tipo de destino inválido.';
   }
-  return validateTagName(input.name) ?? validateDestinationUrl(input.type, input.destinationUrl);
+  return (
+    validateTagName(input.name) ??
+    validateDestinationUrl(input.type, input.destinationUrl) ??
+    (input.salePrice === undefined || isValidSalePrice(input.salePrice)
+      ? null
+      : 'O valor da venda deve ser maior ou igual a zero.')
+  );
 }
 
 function isGoogleHost(hostname: string): boolean {
