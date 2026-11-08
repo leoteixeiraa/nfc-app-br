@@ -32,6 +32,7 @@ services:
       APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://localhost}
       GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?Configure FIREBASE_PROJECT_ID no arquivo .env}
+      APP_ACCOUNT_TAGS_ENABLED: ${APP_ACCOUNT_TAGS_ENABLED:-true}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
     depends_on:
       database:

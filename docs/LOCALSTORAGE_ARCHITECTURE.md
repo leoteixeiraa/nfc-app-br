@@ -4,9 +4,9 @@
 
 O dashboard e a criação de placas estão disponíveis sem login. A criação publica
 o link por meio da API e guarda no navegador os dados necessários ao gerenciamento
-da placa. A sincronização de placas e clientes com a conta ainda não está pronta.
-O código de integração em desenvolvimento não deve importar registros antigos
-sem confirmação nem remover dados antes da confirmação de persistência.
+da placa. Após o login, placas publicadas que ainda não pertencem a uma conta são
+associadas automaticamente usando a credencial de gerenciamento local; placas da
+conta são importadas para o navegador e atualizadas quando necessário.
 
 Os dados de clientes e seus vínculos continuam apenas no navegador e não são
 sincronizados com a conta.
@@ -23,15 +23,17 @@ usar outro perfil do navegador ou perder o dispositivo pode impedir o acesso
 às placas que ainda não foram associadas à conta. Não há backup automático de
 clientes nem acesso entre dispositivos para esses dados.
 
-## Associação experimental de placas à conta
+## Associação de placas à conta
 
-O backend contém endpoints experimentais de associação e consulta, desativados por
-padrão com `app.account-tags.enabled`. A ativação antes da integração completa
-pode impedir o gerenciamento pela interface atual. A associação verifica a
+Os endpoints autenticados de associação e consulta ficam habilitados por padrão.
+`APP_ACCOUNT_TAGS_ENABLED=false` pode desativá-los em uma implantação, mas, nesse
+caso, a sincronização da interface não estará disponível. A associação verifica a
 credencial de gerenciamento e o titular, sem alterar o link público. A migration
-adiciona a referência ao proprietário, sem transferir dados existentes.
+adiciona a referência ao proprietário e não transfere placas existentes
+automaticamente: elas são associadas após login somente se ainda estiverem neste
+navegador e tiverem sua credencial de gerenciamento local.
 
-Ainda faltam importação e consulta de clientes, identificação confiável da origem
-dos registros locais, confirmação contextual para dados antigos, remoção segura
-após confirmação, integração do fluxo de sessão e gestão de placas da conta no
-frontend, além da validação de ponta a ponta.
+Clientes e vínculos continuam armazenados apenas neste navegador e não são
+sincronizados com a conta. Placas locais sem credencial de gerenciamento não podem
+ser associadas automaticamente; elas permanecem locais e são indicadas como
+pendentes na interface. Encerrar a sessão não apaga os dados locais.

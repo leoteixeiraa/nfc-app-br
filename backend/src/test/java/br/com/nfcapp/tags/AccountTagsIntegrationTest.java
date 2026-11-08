@@ -33,7 +33,7 @@ import br.com.nfcapp.auth.CurrentUser;
 @AutoConfigureMockMvc
 @Transactional
 @EnabledIfEnvironmentVariable(named = "NFCAPP_ACCOUNT_INTEGRATION_TEST", matches = "true")
-@TestPropertySource(properties = { "app.firebase.project-id=integration-test", "app.account-tags.enabled=true" })
+@TestPropertySource(properties = { "app.firebase.project-id=integration-test" })
 class AccountTagsIntegrationTest {
     @Autowired
     private TagService tags;

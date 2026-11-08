@@ -52,6 +52,22 @@ describe('Clientes locais', () => {
     expect(clients.get(place.placeId)?.tags.length).toBe(0);
   });
 
+  it('impede excluir cliente com placas e permite excluir após remover todas', () => {
+    const tag = tags.create(input);
+    clients.setPlace(tag, place);
+    expect(() => clients.remove(place.placeId)).toThrowError(/1 placa vinculada/);
+    expect(clients.get(place.placeId)?.tags.length).toBe(1);
+
+    tags.remove(tag.id);
+    clients.forgetTag(tag.id);
+    clients.remove(place.placeId);
+    expect(clients.get(place.placeId)).toBeUndefined();
+  });
+
+  it('informa quando o cliente a excluir não existe', () => {
+    expect(() => clients.remove('inexistente')).toThrowError(/Cliente não encontrado/);
+  });
+
   it('atualiza vínculo imediatamente ao mudar o estabelecimento', () => {
     const tag = tags.create(input);
     clients.setPlace(tag, place);

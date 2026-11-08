@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { catchError, concatMap, defer, from, map, Observable, of, Subscription, switchMap, throwError, toArray } from 'rxjs';
 import { AuthSessionStore } from '../auth/auth-session.store';
@@ -159,7 +160,25 @@ export class TagAccountSyncService {
 
   private setError(error: unknown): void {
     this.status.set('error');
-    this.error.set(error instanceof Error ? error.message : 'Não foi possível sincronizar suas placas. Tente novamente.');
+    this.error.set(this.errorMessage(error));
+  }
+
+  private errorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 0) {
+        return 'Não foi possível conectar ao servidor para sincronizar suas placas. Verifique sua conexão e tente novamente.';
+      }
+      if (error.status === 401) {
+        return 'Sua sessão expirou. Entre novamente para sincronizar suas placas.';
+      }
+      if (error.status === 404) {
+        return 'O servidor não encontrou o serviço de sincronização ou uma das placas. Verifique se o backend está atualizado.';
+      }
+      if (error.status >= 500) {
+        return 'O servidor não conseguiu sincronizar suas placas. Tente novamente mais tarde.';
+      }
+    }
+    return error instanceof Error ? error.message : 'Não foi possível sincronizar suas placas. Tente novamente.';
   }
 
   private runRequestedRefresh(userId: string): void {

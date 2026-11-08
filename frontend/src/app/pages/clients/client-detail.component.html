@@ -45,6 +45,24 @@
         }
       </ul>
     </section>
+    <section class="rounded-2xl border border-error-200 bg-white p-5 sm:p-6 dark:border-error-500/30 dark:bg-white/3">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Excluir cliente</h2>
+      @if (client.tags.length > 0) {
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Remova {{ client.tags.length }} {{ client.tags.length === 1 ? 'placa vinculada' : 'placas vinculadas' }} antes de excluir este cliente.
+        </p>
+      } @else {
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">A exclusão remove os dados deste cliente somente deste navegador.</p>
+      }
+      <button
+        app-button
+        variant="outline"
+        type="button"
+        class="mt-4"
+        [disabled]="client.tags.length > 0"
+        (click)="remove(client)"
+      >Excluir cliente</button>
+    </section>
     <a app-button variant="outline" routerLink="/clientes">Voltar aos clientes</a>
   </div>
 } @else if (!error()) {

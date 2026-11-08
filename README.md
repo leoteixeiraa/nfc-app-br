@@ -55,7 +55,7 @@ O login Google é mantido no navegador e a sessão do servidor é renovada autom
 
 ## Placas NFC
 
-Placas anônimas são publicadas no backend e persistidas no PostgreSQL. O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. Limpar os dados do navegador ou mudar de dispositivo remove o acesso local de gerenciamento, mas não invalida a placa pública. Ainda não há exportação nem associação de placas anônimas a uma conta.
+Placas são publicadas no backend e persistidas no PostgreSQL. O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. Após o login, placas publicadas ainda não associadas são vinculadas à conta usando essa credencial, e as placas da conta são importadas para o navegador. Limpar os dados antes de associar uma placa pode impedir seu gerenciamento por este navegador, mas não invalida a placa pública. Clientes e vínculos continuam locais.
 
 O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
 
@@ -65,7 +65,7 @@ A Web NFC exige um contexto seguro. Em produção, configure `APP_DOMAIN` para o
 
 ## Dashboard
 
-A página inicial apresenta o resumo das placas e clientes deste navegador, inclusive após o login; ainda não há sincronização com a conta. O faturamento é a soma dos valores de venda informados nas placas, não uma confirmação de pagamento. Os filtros usam a data de criação das placas e dos clientes; placas ativas refletem o status armazenado localmente. Os gráficos exibem os últimos 6 ou 12 meses dentro do período escolhido, que pode ser maior do que o intervalo visualizado.
+A página inicial apresenta o resumo das placas e clientes deste navegador. Após o login, as placas associadas à conta são sincronizadas; clientes permanecem locais. O faturamento é a soma dos valores de venda informados nas placas, não uma confirmação de pagamento. Os filtros usam a data de criação das placas e dos clientes; placas ativas refletem o status armazenado localmente. Os gráficos exibem os últimos 6 ou 12 meses dentro do período escolhido, que pode ser maior do que o intervalo visualizado.
 
 ## Clientes
 

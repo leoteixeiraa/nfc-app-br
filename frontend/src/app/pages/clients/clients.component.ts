@@ -13,7 +13,7 @@ import { TableThreeComponent } from '../tables/components/basic-tables/table-thr
   template: `
     <app-page-breadcrumb pageTitle="Clientes" />
     @if (clients().length > 0) {
-      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Os dados de clientes ficam somente neste navegador e ainda não são sincronizados com a conta. As estatísticas de acessos são exemplos.</p>
+      <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Os dados de clientes ficam somente neste navegador e ainda não são sincronizados com a conta. As estatísticas de acessos são exemplos. Clientes com placas vinculadas não podem ser excluídos; remova as placas primeiro.</p>
     }
     @if (session.currentUser() && tagSync.status() === 'syncing' && tagSync.pendingImportCount() === 0) {
       <p role="status" class="mb-4 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
@@ -38,7 +38,7 @@ import { TableThreeComponent } from '../tables/components/basic-tables/table-thr
       <p role="status" class="mb-4 text-sm text-gray-500">Gerando relatório PDF...</p>
     }
     @if (loaded()) {
-      <app-table-three [clients]="clients()" [reportLoading]="generating()" (report)="download($event)" />
+      <app-table-three [clients]="clients()" [reportLoading]="generating()" (report)="download($event)" (deleteClient)="removeClient($event)" />
     }
   `,
 })
@@ -71,6 +71,22 @@ export class ClientsComponent {
       this.error.set(error instanceof Error ? error.message : 'Não foi possível gerar o relatório.');
     } finally {
       this.generating.set(false);
+    }
+  }
+
+  removeClient(client: Client): void {
+    if (client.tags.length > 0) return;
+    const confirmed = window.confirm(
+      `Excluir ${client.name}? Esta ação removerá os dados locais deste cliente neste navegador e não pode ser desfeita.`,
+    );
+    if (!confirmed) return;
+
+    this.error.set('');
+    try {
+      this.service.remove(client.placeId);
+      this.clients.set(this.service.list());
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Não foi possível excluir o cliente.');
     }
   }
 }

@@ -45,6 +45,8 @@ management:
       enabled: true
 
 app:
+  account-tags:
+    enabled: ${APP_ACCOUNT_TAGS_ENABLED:true}
   firebase:
     project-id: ${FIREBASE_PROJECT_ID}
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost}

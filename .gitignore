@@ -1,5 +1,6 @@
 # Environment secrets
 senha-banco.txt
+credenciais-gemini.txt
 .env
 .env.*
 !.env.example

@@ -56,6 +56,18 @@ import { TABLE_IMPORTS } from '../../../../../shared/components/ui/table';
                   <td app-table-cell class="px-4 py-4 text-sm">
                     <a class="text-brand-500 hover:underline" [routerLink]="['/clientes', client.placeId]">Detalhes</a>
                     <button type="button" class="ml-3 text-brand-500 hover:underline disabled:opacity-50" [disabled]="reportLoading" (click)="report.emit(client)">Relatório PDF</button>
+                    <button
+                      type="button"
+                      class="ml-3 text-error-500 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                      [disabled]="client.tags.length > 0"
+                      [attr.aria-label]="client.tags.length > 0 ? 'Remova as placas vinculadas antes de excluir ' + client.name : 'Excluir ' + client.name"
+                      (click)="deleteClient.emit(client)"
+                    >Excluir</button>
+                    @if (client.tags.length > 0) {
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Remova {{ client.tags.length }} {{ client.tags.length === 1 ? 'placa vinculada' : 'placas vinculadas' }} para excluir.
+                      </p>
+                    }
                   </td>
                 </tr>
               } @empty {
@@ -169,6 +181,7 @@ export class TableThreeComponent {
   @Input() clients: Client[] | null = null;
   @Input() reportLoading = false;
   @Output() report = new EventEmitter<Client>();
+  @Output() deleteClient = new EventEmitter<Client>();
   @Input() className = '';
   readonly clientHeadings = ['Estabelecimento', 'Categoria', 'Endereço', 'Cadastro', 'Placas', 'Scans', 'Ações'];
 

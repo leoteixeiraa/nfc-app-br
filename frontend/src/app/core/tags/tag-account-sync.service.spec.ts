@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AuthSessionStore } from '../auth/auth-session.store';
@@ -86,7 +87,7 @@ describe('TagAccountSyncService', () => {
 
   it('expõe falhas e permite tentar novamente', () => {
     tagsApi.listAccountTags.and.returnValues(
-      throwError(() => new Error('Falha de rede')),
+      throwError(() => new HttpErrorResponse({ status: 404 })),
       of([{ id: publishedTag.id }]),
     );
     session.setUser(user);
@@ -94,7 +95,7 @@ describe('TagAccountSyncService', () => {
     TestBed.flushEffects();
 
     expect(sync.status()).toBe('error');
-    expect(sync.error()).toContain('Falha de rede');
+    expect(sync.error()).toContain('backend está atualizado');
 
     sync.retry();
     expect(sync.status()).toBe('synced');

@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Client, LocalClientsService } from '../../core/clients/local-clients.service';
 import { ClientReportService } from '../../core/clients/client-report.service';
 import { tagTypeLabel } from '../../core/tags/nfc-tag';
@@ -16,6 +16,7 @@ import { ButtonComponent } from '../../shared/components/ui/button/button.compon
 export class ClientDetailComponent {
   private readonly service = inject(LocalClientsService);
   private readonly reports = inject(ClientReportService);
+  private readonly router = inject(Router);
   readonly client = signal<Client | undefined>(undefined);
   readonly error = signal('');
   readonly generating = signal(false);
@@ -40,6 +41,22 @@ export class ClientDetailComponent {
       this.error.set(error instanceof Error ? error.message : 'Não foi possível gerar o relatório.');
     } finally {
       this.generating.set(false);
+    }
+  }
+
+  remove(client: Client): void {
+    if (client.tags.length > 0) return;
+    const confirmed = window.confirm(
+      `Excluir ${client.name}? Esta ação removerá os dados locais deste cliente neste navegador e não pode ser desfeita.`,
+    );
+    if (!confirmed) return;
+
+    this.error.set('');
+    try {
+      this.service.remove(client.placeId);
+      void this.router.navigate(['/clientes']);
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Não foi possível excluir o cliente.');
     }
   }
 }

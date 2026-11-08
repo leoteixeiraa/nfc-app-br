@@ -14,6 +14,7 @@ class TableThreeStub {
   @Input() clients: Client[] = [];
   @Input() reportLoading = false;
   @Output() report = new EventEmitter<Client>();
+  @Output() deleteClient = new EventEmitter<Client>();
 }
 
 describe('Clientes e armazenamento local', () => {
@@ -24,11 +25,14 @@ describe('Clientes e armazenamento local', () => {
       imports: [ClientsComponent],
       providers: [
         provideRouter([]),
-        { provide: LocalClientsService, useValue: { list: () => [{
-          placeId: 'cliente-1', name: 'Café', address: '', reviewUrl: '', rating: null,
-          userRatingCount: null, googleMapsUrl: null, createdAt: '2026-01-01T00:00:00Z',
-          tags: [], statistics: { total: 0, last7Days: 0, last30Days: 0, lastAccess: null },
-        }] } },
+        { provide: LocalClientsService, useValue: {
+          list: () => [{
+            placeId: 'cliente-1', name: 'Café', address: '', reviewUrl: '', rating: null,
+            userRatingCount: null, googleMapsUrl: null, createdAt: '2026-01-01T00:00:00Z',
+            tags: [], statistics: { total: 0, last7Days: 0, last30Days: 0, lastAccess: null },
+          }],
+          remove: jasmine.createSpy('remove'),
+        } },
         { provide: ClientReportService, useValue: { download: jasmine.createSpy() } },
         { provide: TagAccountSyncService, useValue: {
           status: signal('synced'), pendingImportCount: signal(0), error: signal(''), retry: jasmine.createSpy(),
@@ -47,5 +51,17 @@ describe('Clientes e armazenamento local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Os dados de clientes ficam somente neste navegador e ainda não são sincronizados com a conta.');
     expect(fixture.componentInstance.clients()[0].name).toBe('Café');
+  });
+
+  it('confirma antes de excluir e atualiza a lista local', () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    const service = TestBed.inject(LocalClientsService);
+    spyOn(service, 'list').and.returnValue([]);
+
+    fixture.componentInstance.removeClient(fixture.componentInstance.clients()[0]);
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(service.remove).toHaveBeenCalledWith('cliente-1');
+    expect(fixture.componentInstance.clients()).toEqual([]);
   });
 });

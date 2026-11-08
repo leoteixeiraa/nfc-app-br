@@ -47,6 +47,18 @@ export interface Client extends ClientRecord {
   statistics: ScanStatistics;
 }
 
+export type LocalClientsErrorCode = 'not-found' | 'linked-tags';
+
+export class LocalClientsError extends Error {
+  constructor(
+    readonly code: LocalClientsErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'LocalClientsError';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class LocalClientsService {
   private readonly tags = inject(LocalTagsService);
@@ -86,6 +98,25 @@ export class LocalClientsService {
   setPlace(tag: NfcTag, place: PlaceDetails | ClientPlace | null): void {
     const store = this.read();
     this.associate(store, tag, place);
+    this.write(store);
+  }
+
+  remove(placeId: string): void {
+    const client = this.get(placeId);
+    if (!client) {
+      throw new LocalClientsError('not-found', 'Cliente não encontrado neste navegador.');
+    }
+    if (client.tags.length > 0) {
+      const count = client.tags.length;
+      throw new LocalClientsError(
+        'linked-tags',
+        `Não é possível excluir este cliente enquanto houver ${count} ${count === 1 ? 'placa vinculada' : 'placas vinculadas'}.`,
+      );
+    }
+
+    const store = this.read();
+    store.clients = store.clients.filter((item) => item.placeId !== placeId);
+    store.links = store.links.filter((link) => link.placeId !== placeId);
     this.write(store);
   }
 
