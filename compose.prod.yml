@@ -1,4 +1,9 @@
 services:
+  backend:
+    environment:
+      SESSION_COOKIE_SECURE: "true"
+      APP_PUBLIC_BASE_URL: https://${APP_DOMAIN:?Configure APP_DOMAIN no arquivo .env}
+
   frontend:
     build:
       target: wildcard-runtime

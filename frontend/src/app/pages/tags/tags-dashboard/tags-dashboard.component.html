@@ -1,0 +1,135 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Minhas placas</h1>
+      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        Gerencie suas placas NFC em um só lugar.
+      </p>
+    </div>
+    <a app-button routerLink="/tags/new">Nova placa</a>
+  </div>
+
+  @if (notice()) {
+    <div role="status" class="flex items-start justify-between gap-3 rounded-xl border border-success-500 bg-success-50 p-4 text-sm text-success-600 dark:border-success-500/30 dark:bg-success-500/15 dark:text-success-500">
+      <span>{{ notice() }}</span>
+      <button type="button" class="font-medium underline" (click)="dismissNotice()">Fechar</button>
+    </div>
+  }
+
+  @if (actionError() || loadError()) {
+    <div role="alert" class="rounded-xl border border-error-500 bg-error-50 p-4 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-500">
+      {{ actionError() || loadError() }}
+    </div>
+  }
+
+  @if (!loadError()) {
+    @if (tags().length > 0 && !session.currentUser()) {
+      <div class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Suas placas estão salvas neste dispositivo. Crie uma conta para gerenciá-las com mais segurança.
+        <a routerLink="/signup" class="ml-1 font-medium underline">Criar conta</a>
+      </div>
+    }
+    @if (session.currentUser() && tagSync.status() === 'syncing' && tagSync.pendingImportCount() === 0) {
+      <p role="status" class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Verificando a sincronização das placas com sua conta...
+      </p>
+    }
+    @if (session.currentUser() && (tagSync.status() === 'syncing' || tagSync.status() === 'pending' || tagSync.status() === 'error') && tagSync.pendingImportCount() > 0) {
+      <p role="status" class="rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+        Existem {{ tagSync.pendingImportCount() }} {{ tagSync.pendingImportCount() === 1 ? 'placa aguardando' : 'placas aguardando' }} importação para sua conta.
+      </p>
+    }
+    @if (session.currentUser() && tagSync.status() === 'error') {
+      <div role="alert" class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-warning-500/40 bg-warning-50 p-3 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+        <span>Não foi possível confirmar a sincronização das placas. {{ tagSync.error() }}</span>
+        <button type="button" class="font-medium underline" (click)="tagSync.retry()">Tentar novamente</button>
+      </div>
+    }
+    @if (tags().length === 0) {
+      <div class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center dark:border-gray-700 dark:bg-white/3">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white/90">Nenhuma placa por aqui ainda</h2>
+        <p class="mx-auto mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+          Crie uma placa para receber avaliações no Google, pagamentos via Pix ou abrir um link personalizado.
+        </p>
+        <a app-button class="mt-6" routerLink="/tags/new">Nova placa        </a>
+      </div>
+    } @else {
+      <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        @for (tag of tags(); track tag.id) {
+          <li class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/3">
+            <div class="min-w-0 space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <h2 class="truncate text-base font-semibold text-gray-800 dark:text-white/90" [title]="tag.name">
+                  {{ tag.name }}
+                </h2>
+                <span class="shrink-0 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
+                  {{ typeLabel(tag.type) }}
+                </span>
+              </div>
+              <p class="text-xs font-medium" [class]="tag.active === false ? 'text-error-500' : 'text-success-600 dark:text-success-400'">
+                {{ tag.active === false ? 'Desativada' : 'Ativa' }}
+              </p>
+              @if (tag.publicUrl) {
+                <a [href]="tag.publicUrl" target="_blank" rel="noopener noreferrer"
+                  class="block break-all text-sm text-brand-500 hover:underline" [title]="tag.publicUrl">
+                  {{ tag.publicUrl }}
+                </a>
+              } @else {
+                <p class="text-xs text-warning-600 dark:text-warning-400">
+                  Rascunho local antigo. Edite para publicar um link NFC.APP.
+                </p>
+                <p class="block truncate text-sm text-gray-500 dark:text-gray-400" [title]="tag.destinationUrl">
+                  {{ tag.destinationUrl }}
+                </p>
+              }
+              @if (tag.salePrice !== undefined) {
+                <p class="text-sm text-gray-600 dark:text-gray-300">Valor da venda: {{ formatPrice(tag.salePrice) }}</p>
+              }
+              <p class="text-xs text-gray-400 dark:text-gray-500">
+                Criada em {{ tag.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                @if (tag.updatedAt !== tag.createdAt) {
+                  · Atualizada em {{ tag.updatedAt | date: 'dd/MM/yyyy HH:mm' }}
+                }
+              </p>
+            </div>
+
+            <div class="mt-auto flex flex-wrap gap-2">
+              <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'edit']">Editar</a>
+              <button app-button variant="outline" size="sm" type="button" (click)="duplicate(tag)">Duplicar</button>
+              @if (tag.publicUrl) {
+                <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'write']">Gravar NFC</a>
+                <a app-button variant="outline" size="sm" [href]="tag.publicUrl" target="_blank" rel="noopener noreferrer">Testar</a>
+                <button app-button variant="outline" size="sm" type="button" (click)="copyLink(tag)">Copiar link</button>
+              }
+              <button app-button variant="destructive" size="sm" type="button" (click)="askRemoval(tag)">Excluir</button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+</div>
+
+@if (tagPendingRemoval(); as pending) {
+  <div class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-900/50 p-4">
+    <div role="dialog" aria-modal="true" aria-labelledby="remove-tag-title"
+      class="w-full max-w-md rounded-2xl bg-white p-6 shadow-theme-lg dark:bg-gray-900">
+      <h2 id="remove-tag-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">
+        {{ (pending.managementToken || pending.accountOwned) ? 'Desativar placa?' : 'Remover rascunho?' }}
+      </h2>
+      <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+        @if (pending.managementToken || pending.accountOwned) {
+          "{{ pending.name }}" deixará de redirecionar. Esta ação não pode ser desfeita.
+        } @else {
+          "{{ pending.name }}" será removida deste navegador.
+        }
+      </p>
+      <div class="mt-6 flex justify-end gap-3">
+        <button app-button variant="outline" type="button" (click)="cancelRemoval()">Cancelar</button>
+        <button app-button variant="destructive" type="button" (click)="confirmRemoval()">
+          {{ (pending.managementToken || pending.accountOwned) ? 'Desativar' : 'Remover' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

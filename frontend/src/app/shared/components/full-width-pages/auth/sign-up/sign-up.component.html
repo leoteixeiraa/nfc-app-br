@@ -1,0 +1,28 @@
+<div [class]="'no-scrollbar flex w-full flex-1 flex-col overflow-y-auto lg:w-1/2 ' + className">
+  <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
+    <div>
+      <app-sign-up-header />
+
+      <div>
+        @if (errorMessage) {
+          <p role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
+            {{ errorMessage }}
+          </p>
+        }
+        <app-social-buttons (selectProvider)="onProviderSelected($event)" />
+
+        <div class="mt-5">
+          <p class="text-center text-sm font-normal text-gray-700 sm:text-start dark:text-gray-400">
+            Já tem uma conta?{{' '}}
+            <a
+              routerLink="/signin"
+              class="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+            >
+              Entrar com Google
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

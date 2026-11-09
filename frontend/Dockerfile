@@ -1,4 +1,4 @@
-FROM node:24.7.0-alpine AS build
+FROM node:24.15.0-alpine AS build
 WORKDIR /workspace
 
 COPY package.json package-lock.json ./
@@ -7,8 +7,10 @@ COPY . ./
 RUN npm run build
 
 FROM caddy:2.11.7-alpine AS runtime
-COPY --from=build /workspace/dist/frontend/browser /srv
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+COPY --from=build /workspace/dist/ng-tailadmin/browser /srv
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
@@ -18,8 +20,10 @@ RUN xcaddy build --with github.com/caddy-dns/cloudflare
 
 FROM caddy:2.11.7-alpine AS wildcard-runtime
 COPY --from=caddy-builder /usr/bin/caddy /usr/bin/caddy
-COPY --from=build /workspace/dist/frontend/browser /srv
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+COPY --from=build /workspace/dist/ng-tailadmin/browser /srv
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1

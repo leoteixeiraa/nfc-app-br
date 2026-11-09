@@ -5,8 +5,14 @@
         reverse_proxy backend:8080
     }
 
+    handle /t/* {
+        reverse_proxy backend:8080
+    }
+
     handle {
         root * /srv
+        @shell not path *.js *.css *.svg *.png *.jpg *.jpeg *.webp *.woff2 *.ico
+        header @shell Cache-Control "no-cache"
         try_files {path} /index.html
         file_server
     }

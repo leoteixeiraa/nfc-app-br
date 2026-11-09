@@ -1,0 +1,276 @@
+<div class="mx-auto max-w-3xl">
+  @if (createdTag(); as published) {
+    @if (submitError()) {
+      <p role="alert" class="mb-4 text-sm text-error-500">{{ submitError() }}</p>
+    }
+    <div role="status" class="mb-4 rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+      {{ isEditing ? 'Sua placa foi atualizada' : 'Sua placa foi criada' }} e está salva neste dispositivo e navegador, não na conta. Mantenha os dados do navegador para continuar acessando sua placa.
+      @if (!session.currentUser()) {
+        <span class="ml-1">Gostou da experiência?</span>
+        <a routerLink="/signup" class="ml-1 font-medium underline">Crie sua conta</a>
+      }
+    </div>
+    <app-tag-write [code]="published.id" [linkQrCodeDataUri]="published.qrCodeDataUri" />
+  } @else if (notFound()) {
+    <div role="alert" class="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/3 dark:text-gray-400">
+      <p>{{ submitError() || 'Placa não encontrada neste navegador.' }}</p>
+      <a app-button variant="outline" routerLink="/tags">Voltar às placas</a>
+    </div>
+  } @else if (reviewMode()) {
+    <section class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 dark:border-gray-800 dark:bg-white/3">
+      <div>
+        <h1 class="text-title-sm font-semibold text-gray-800 dark:text-white/90">Revise sua placa</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Confira o destino antes de publicar.</p>
+      </div>
+      <dl class="space-y-4 text-sm">
+        <div>
+          <dt class="font-medium text-gray-700 dark:text-gray-300">Estabelecimento</dt>
+          <dd class="mt-1 text-gray-500 dark:text-gray-400">{{ form.controls.name.value }}</dd>
+        </div>
+        <div>
+          <dt class="font-medium text-gray-700 dark:text-gray-300">Tipo de destino</dt>
+          <dd class="mt-1 text-gray-500 dark:text-gray-400">
+            {{ type === 'google-review' ? 'Google Avaliações' : type === 'pix' ? 'Pix' : type === 'whatsapp' ? 'WhatsApp' : 'Link personalizado' }}
+          </dd>
+        </div>
+        <div>
+          <dt class="font-medium text-gray-700 dark:text-gray-300">Valor da venda</dt>
+          <dd class="mt-1 text-gray-500 dark:text-gray-400">{{ form.controls.salePrice.value || 'Não informado' }}</dd>
+        </div>
+        @if (type === 'pix' && pixPreview(); as preview) {
+          <div class="flex flex-col items-center gap-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-800 sm:flex-row">
+            <img [src]="preview.qrCodeDataUri" alt="QR Code de pagamento Pix" class="h-48 w-48" />
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-gray-700 dark:text-gray-300">
+                {{ form.controls.name.value }} · {{ form.controls.pixCity.value }}
+              </p>
+              <textarea readonly class="mt-2 w-full rounded-lg border border-gray-300 bg-white p-3 text-xs dark:border-gray-700 dark:bg-gray-900">{{ preview.payload }}</textarea>
+              <button app-button variant="outline" size="sm" type="button" class="mt-2" (click)="copyValue(preview.payload)">
+                Copiar código Pix
+              </button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">
+            Este QR Code representa a cobrança Pix. O QR Code NFC.APP da placa é diferente.
+          </p>
+        } @else {
+          <div>
+            <dt class="font-medium text-gray-700 dark:text-gray-300">Destino</dt>
+            <dd class="mt-1 break-all text-gray-500 dark:text-gray-400">
+              {{ selectedPlace()?.name || form.controls.destination.value }}
+            </dd>
+          </div>
+          <button app-button variant="outline" type="button" (click)="testDestination()">Testar destino</button>
+        }
+      </dl>
+      @if (submitError()) {
+        <div role="alert" class="rounded-xl border border-error-500 bg-error-50 p-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-500">
+          {{ submitError() }}
+        </div>
+      }
+      <div class="flex flex-wrap justify-end gap-3">
+        <button app-button variant="outline" type="button" [disabled]="isSaving()" (click)="backToForm()">Voltar e editar</button>
+        <button app-button type="button" [disabled]="isSaving()" (click)="publish()">
+          {{ isSaving() ? 'Publicando...' : isEditing ? 'Salvar alterações' : 'Criar placa' }}
+        </button>
+      </div>
+    </section>
+  } @else {
+    <h1 class="mb-6 text-title-sm font-semibold text-gray-800 dark:text-white/90">
+      {{ isEditing ? 'Editar placa' : 'Nova placa' }}
+    </h1>
+    <form [formGroup]="form" (ngSubmit)="continueToReview()" novalidate
+      class="space-y-6 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 dark:border-gray-800 dark:bg-white/3">
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-gray-700 dark:text-gray-300">O que a placa deve abrir?</legend>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <button type="button" (click)="selectType('google-review')"
+            [class]="type === 'google-review' ? 'rounded-xl border border-brand-500 bg-brand-50 p-4 text-left text-sm font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400' : 'rounded-xl border border-gray-200 p-4 text-left text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300'">
+            Google Avaliações
+          </button>
+          <button type="button" (click)="selectType('pix')"
+            [class]="type === 'pix' ? 'rounded-xl border border-brand-500 bg-brand-50 p-4 text-left text-sm font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400' : 'rounded-xl border border-gray-200 p-4 text-left text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300'">
+            Pix
+          </button>
+          <button type="button" (click)="selectType('url')"
+            [class]="type === 'url' ? 'rounded-xl border border-brand-500 bg-brand-50 p-4 text-left text-sm font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400' : 'rounded-xl border border-gray-200 p-4 text-left text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300'">
+            Link personalizado
+          </button>
+          @if (isEditing && type === 'whatsapp') {
+            <button type="button" (click)="selectType('whatsapp')" class="rounded-xl border border-brand-500 bg-brand-50 p-4 text-left text-sm font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+              WhatsApp (placa existente)
+            </button>
+          }
+        </div>
+      </fieldset>
+
+      @if (isGoogleReview) {
+        @if (selectedPlace(); as place) {
+          <div class="rounded-xl border border-success-500/30 bg-success-50 p-4 dark:bg-success-500/10">
+            @if (place.photoUrl) {
+              <img [src]="place.photoUrl" [alt]="'Foto de ' + place.name"
+                class="mb-4 h-40 w-full rounded-lg object-cover" loading="lazy" />
+              @for (attribution of place.photoAttributions ?? []; track attribution.uri || attribution.displayName) {
+                <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                  Foto:
+                  @if (attribution.uri) {
+                    <a [href]="attribution.uri" target="_blank" rel="noopener noreferrer" class="underline">
+                      {{ attribution.displayName }}
+                    </a>
+                  } @else {
+                    {{ attribution.displayName }}
+                  }
+                </p>
+              }
+            }
+            <p class="text-sm font-medium text-gray-800 dark:text-white/90">{{ place.name }}</p>
+            @if (place.address) {
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ place.address }}</p>
+            }
+            @if (place.rating !== null && place.rating !== undefined) {
+              <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                ★ {{ place.rating }}
+                @if (place.userRatingCount !== null && place.userRatingCount !== undefined) {
+                  · {{ place.userRatingCount }} avaliações
+                }
+              </p>
+            } @else if (place.userRatingCount !== null && place.userRatingCount !== undefined) {
+              <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                {{ place.userRatingCount }} avaliações
+              </p>
+            }
+            @if (place.googleMapsUrl) {
+              <a [href]="place.googleMapsUrl" target="_blank" rel="noopener noreferrer"
+                class="mt-2 inline-block text-xs text-brand-500 underline">
+                Google Maps
+              </a>
+            } @else {
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Informações do Google Maps</p>
+            }
+            <button type="button" class="mt-3 text-xs font-medium text-brand-500 underline" (click)="useGoogleSearch()">
+              Alterar estabelecimento
+            </button>
+          </div>
+        } @else if (!manualGoogle()) {
+          <div class="space-y-2">
+            <label for="place-search" class="text-sm font-medium text-gray-700 dark:text-gray-400">Nome do estabelecimento</label>
+            <input app-input unstyled id="place-search" type="search" formControlName="placeSearch"
+              placeholder="Ex.: Café Central, São Paulo" [className]="fieldClasses" />
+            @if (isSearching()) {
+              <p role="status" class="text-xs text-gray-500 dark:text-gray-400">Pesquisando estabelecimentos...</p>
+            }
+            @if (results().length > 0) {
+              <ul class="divide-y divide-gray-200 rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                @for (place of results(); track place.placeId) {
+                  <li>
+                    <button type="button" [disabled]="isLoadingPlaceDetails()"
+                      class="w-full p-3 text-left hover:bg-gray-50 disabled:opacity-50 dark:hover:bg-gray-800"
+                      (click)="choosePlace(place)">
+                      <span class="block text-sm font-medium text-gray-800 dark:text-white/90">{{ place.name }}</span>
+                      <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ place.address }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+            @if (isLoadingPlaceDetails()) {
+              <p role="status" class="text-xs text-gray-500 dark:text-gray-400">
+                Carregando informações do estabelecimento...
+              </p>
+            }
+            @if (searchError()) {
+              <p role="status" class="text-xs text-gray-500 dark:text-gray-400">{{ searchError() }}</p>
+            }
+            <button type="button" class="text-xs font-medium text-brand-500 underline" (click)="switchToManualGoogle()">
+              Não encontrou sua empresa? Inserir link manualmente
+            </button>
+          </div>
+        }
+        @if (manualGoogle() || selectedPlace()) {
+          @if (manualGoogle()) {
+            <div class="space-y-2">
+              <label for="tag-name" class="text-sm font-medium text-gray-700 dark:text-gray-400">Nome do estabelecimento</label>
+              <input app-input unstyled id="tag-name" type="text" formControlName="name" maxlength="80"
+                placeholder="Ex.: Café Central" [className]="fieldClasses" />
+              @if (showError('name'); as message) {
+                <p class="text-xs text-error-500">{{ message }}</p>
+              }
+            </div>
+          }
+          <div class="space-y-2">
+            <label for="google-link" class="text-sm font-medium text-gray-700 dark:text-gray-400">Link para escrever uma avaliação</label>
+            <input app-input unstyled id="google-link" type="url" formControlName="destination"
+              placeholder="https://g.page/r/.../review" [className]="fieldClasses" />
+            @if (showError('destination'); as message) {
+              <p class="text-xs text-error-500">{{ message }}</p>
+            }
+            @if (manualGoogle()) {
+              <button type="button" class="text-xs font-medium text-brand-500 underline" (click)="useGoogleSearch()">
+                Pesquisar empresa no Google
+              </button>
+            }
+          </div>
+        }
+      } @else if (isPix) {
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2 sm:col-span-2">
+            <label for="pix-name" class="text-sm font-medium text-gray-700 dark:text-gray-400">Nome do estabelecimento / recebedor</label>
+            <input app-input unstyled id="pix-name" type="text" formControlName="name" maxlength="25"
+              placeholder="Ex.: Café Central" [className]="fieldClasses" />
+            @if (showError('name'); as message) {
+              <p class="text-xs text-error-500">{{ message }}</p>
+            }
+          </div>
+          <div class="space-y-2 sm:col-span-2">
+            <label for="pix-key" class="text-sm font-medium text-gray-700 dark:text-gray-400">Chave Pix</label>
+            <input app-input unstyled id="pix-key" type="text" formControlName="pixKey" maxlength="77" [className]="fieldClasses" />
+          </div>
+          <div class="space-y-2">
+            <label for="pix-city" class="text-sm font-medium text-gray-700 dark:text-gray-400">Cidade</label>
+            <input app-input unstyled id="pix-city" type="text" formControlName="pixCity" maxlength="15" [className]="fieldClasses" />
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
+            O NFC.APP gera um Pix estático. Não há integração bancária nem cobrança automática.
+          </p>
+        </div>
+      } @else {
+        <div class="space-y-2">
+          <label for="tag-name" class="text-sm font-medium text-gray-700 dark:text-gray-400">Nome do estabelecimento</label>
+          <input app-input unstyled id="tag-name" type="text" formControlName="name" maxlength="80"
+            placeholder="Ex.: Café Central" [className]="fieldClasses" />
+          @if (showError('name'); as message) {
+            <p class="text-xs text-error-500">{{ message }}</p>
+          }
+        </div>
+        <div class="space-y-2">
+          <label for="tag-destination" class="text-sm font-medium text-gray-700 dark:text-gray-400">{{ destinationLabel }}</label>
+          <input app-input unstyled id="tag-destination" [type]="type === 'whatsapp' ? 'tel' : 'url'"
+            formControlName="destination" [placeholder]="destinationPlaceholder" [className]="fieldClasses" />
+          @if (showError('destination'); as message) {
+            <p class="text-xs text-error-500">{{ message }}</p>
+          }
+        </div>
+      }
+
+      <div class="space-y-2">
+        <label for="tag-sale-price" class="text-sm font-medium text-gray-700 dark:text-gray-400">Valor da venda (R$)</label>
+        <input app-input unstyled id="tag-sale-price" type="text" inputmode="numeric" autocomplete="off"
+          formControlName="salePrice" placeholder="R$ 0,00" maxlength="20" [className]="fieldClasses"
+          (input)="maskSalePrice()" />
+        <p class="text-xs text-gray-500 dark:text-gray-400">Opcional. Preço de venda da placa física.</p>
+      </div>
+
+      @if (submitError()) {
+        <div role="alert" class="rounded-xl border border-error-500 bg-error-50 p-3 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/15 dark:text-error-500">
+          {{ submitError() }}
+        </div>
+      }
+      <div class="flex flex-wrap justify-end gap-3">
+        <a app-button variant="outline" routerLink="/tags">Cancelar</a>
+        <button app-button type="submit" [disabled]="isSaving()">
+          {{ isSaving() ? 'Preparando...' : 'Continuar' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

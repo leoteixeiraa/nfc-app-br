@@ -1,6 +1,6 @@
 # NFC.APP
 
-Fundação técnica da plataforma SaaS de gerenciamento de placas NFC. Este repositório inicia um monólito modular e deliberadamente não contém funcionalidades de negócio.
+Plataforma SaaS para criar e gerenciar placas NFC, com redirecionamento público persistente e planos por organização.
 
 ## Stack
 
@@ -29,7 +29,8 @@ compose.prod.yml          Sobrescritas para HTTPS/wildcard
 ## Configuração e inicialização local
 
 1. Copie `.env.example` para `.env` e substitua `POSTGRES_PASSWORD` por uma senha aleatória forte. O `.env` não é versionado.
-2. Na raiz do projeto, execute:
+2. Para publicar links em produção, configure `APP_DOMAIN` com o domínio HTTPS público; `compose.prod.yml` usa `https://APP_DOMAIN` como origem dos links NFC.APP. Para habilitar a busca de estabelecimentos, configure `GOOGLE_PLACES_API_KEY` com uma chave restrita à Google Places API (New). Sem essa chave, o formulário continua aceitando links de avaliação inseridos manualmente.
+3. Na raiz do projeto, execute:
 
 ```sh
 docker compose up -d --build
@@ -37,7 +38,9 @@ docker compose up -d --build
 
 O frontend estará em `http://localhost` (ou na porta de `HTTP_PORT`). O Caddy encaminha `/api/*` ao backend. O status mínimo da API pode ser consultado em `http://localhost/api/status`; o health check do Actuator é `http://localhost/actuator/health` apenas dentro da rede Docker, pois somente `/api/*` é encaminhado pelo proxy.
 
-O banco não publica portas no host. PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva os dados. Para removê-los explicitamente, use `docker compose down -v` (operação destrutiva).
+Para conectar ao PostgreSQL pelo DBeaver na máquina local, use o driver PostgreSQL com host `localhost`, porta `5432`, database `nfcapp` e usuário `nfcapp`. A senha é o valor de `POSTGRES_PASSWORD` no arquivo `.env`; database e usuário também podem ser conferidos ali. A porta é vinculada somente a `127.0.0.1`, sem exposição à rede externa. Se alterar a configuração ou habilitar essa porta pela primeira vez, aplique-a com `docker compose up -d database`.
+
+PostgreSQL usa o volume nomeado `postgres_data`; `docker compose down` preserva os dados. Para removê-los explicitamente, use `docker compose down -v` (operação destrutiva).
 
 ## Logs e operações
 
@@ -47,6 +50,36 @@ O banco não publica portas no host. PostgreSQL usa o volume nomeado `postgres_d
 - Parar/remover containers e rede, preservando banco: `docker compose down`
 
 A migração inicial Flyway é aplicada automaticamente ao iniciar o backend. Hibernate está em `ddl-auto: validate`; criação/alteração futura de esquema deve ocorrer exclusivamente por novas migrações Flyway.
+
+O login Google é mantido no navegador e a sessão do servidor é renovada automaticamente quando expira ou o navegador é reaberto. Ao sair, ambas as sessões são encerradas. A permanência depende do armazenamento do navegador e da validade da autenticação Google; limpeza dos dados, revogação de acesso ou uso de navegação privada podem exigir novo login. Em computadores compartilhados, encerre a sessão ao terminar.
+
+## Placas NFC
+
+Novas publicações exigem login e são vinculadas à organização da conta. O plano Start permite até três placas publicadas; edições de placas ativas não consomem uma nova vaga. Placas anônimas anteriormente publicadas continuam funcionando e podem ser associadas após o login, mesmo que o consumo ultrapasse o limite. Nesse caso, novas publicações e reativações ficam bloqueadas até haver uma vaga. A interface ainda não foi adaptada para orientar o login ou mostrar o limite.
+
+O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. A gestão por credencial de placas associadas também exige a sessão do proprietário. Após o login, placas publicadas ainda não associadas são vinculadas à conta usando essa credencial, e as placas da conta são importadas para o navegador. Limpar os dados antes de associar uma placa pode impedir seu gerenciamento por este navegador, mas não invalida a placa pública. Clientes e vínculos continuam locais.
+
+## Planos
+
+Cada nova conta recebe uma organização pessoal e uma assinatura Start (FREE). A migration V8 cria assinaturas FREE para organizações existentes e organizações pessoais para usuários sem vínculo. Enquanto não houver seleção de organização, a organização corrente é o primeiro vínculo por data e identificador.
+
+`GET /api/plans` apresenta o catálogo e `GET /api/organizations/current/plan` requer sessão autenticada e informa assinatura, capacidades, limite e consumo de placas ativas. `entitled` indica a capacidade prevista no plano e `enabled` indica que ela também está disponível; capacidades Pro futuras permanecem indisponíveis. O preço inicial do Pro é R$ 29,90 mensal, armazenado no catálogo `plans` e configurável por operação administrativa no banco. Alterar o preço não implementa cobrança nem checkout. Não há endpoint para mudar planos; futuras integrações de pagamento devem fazer a transição por código confiável, usando o serviço de planos e seu bloqueio transacional.
+
+O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
+
+Após criar uma placa, escolha **Gravar placa NFC**. Em Android com navegador compatível e NFC habilitado, a Web NFC grava o link dinâmico diretamente, sem outro aparelho. A primeira tentativa não substitui conteúdo existente. Se for recusada, permita o NFC ou verifique o conteúdo da placa; após identificar dados, é possível confirmar a substituição e aproximar a mesma placa novamente. Cartões bloqueados ou incompatíveis não podem ser gravados. O iPhone requer um aplicativo NFC. No computador, o QR Code abre a gravação no celular sem transferir a credencial de gerenciamento ou adicionar a placa ao armazenamento local do celular. Qualquer pessoa com esse QR Code pode gravar e testar o link público; não o compartilhe com desconhecidos. O QR Code do link da placa é opcional e não é necessário para a gravação. O link precisa estar ativo no backend. Teste o destino e, quando disponível, verifique o conteúdo por leitura NFC.
+
+A Web NFC exige um contexto seguro. Em produção, configure `APP_DOMAIN` para o domínio HTTPS público correto. Endereços `localhost` são úteis para desenvolvimento local, mas não permitem continuar pelo celular, pois apontam para o próprio dispositivo.
+
+## Dashboard
+
+A página inicial apresenta o resumo das placas e clientes deste navegador. Após o login, as placas associadas à conta são sincronizadas; clientes permanecem locais. O faturamento é a soma dos valores de venda informados nas placas, não uma confirmação de pagamento. Os filtros usam a data de criação das placas e dos clientes; placas ativas refletem o status armazenado localmente. Os gráficos exibem os últimos 6 ou 12 meses dentro do período escolhido, que pode ser maior do que o intervalo visualizado.
+
+## Clientes
+
+Ao criar uma placa e gerar seu link, o navegador cadastra o estabelecimento como cliente e vincula a placa, independentemente da gravação NFC. Estabelecimentos selecionados na busca Google são identificados pelo Google Place ID; para placas sem Place ID, o agrupamento usa o nome, ignorando diferenças de maiúsculas e espaços extras. Nomes iguais podem representar estabelecimentos diferentes, portanto confira-os antes de criar a placa. Se uma placa anterior já estiver salva neste navegador com link público, ela também será associada ao abrir Clientes.
+
+Clientes e vínculos ficam no `localStorage` deste navegador e não são sincronizados entre dispositivos ou contas. A edição da placa atualiza o vínculo; a remoção da placa elimina seu vínculo, mas mantém o cliente. Limpar os dados do navegador também remove os clientes. Os números de scans exibidos no aplicativo são simulados e não representam telemetria real. O relatório PDF apresenta reputação no Google e placas, indicando que dados de interação ainda não estão disponíveis, sem incluir esses números simulados. Para clientes associados ao Google, a geração consulta novamente o Places e inclui até cinco avaliações disponíveis selecionadas por relevância, não necessariamente as mais recentes. Essa consulta pode gerar cobrança adicional do Google. Se a consulta falhar, o relatório não é gerado. Clientes sem Google Place ID não têm avaliações individuais no relatório.
 
 ## Desenvolvimento e testes
 
