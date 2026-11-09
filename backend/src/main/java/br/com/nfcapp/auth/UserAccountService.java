@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.nfcapp.plans.PlanService;
+
 @Service
 public class UserAccountService {
 
@@ -19,9 +21,11 @@ public class UserAccountService {
                     resultSet.getString("picture_url"));
 
     private final JdbcTemplate jdbcTemplate;
+    private final PlanService plans;
 
-    public UserAccountService(JdbcTemplate jdbcTemplate) {
+    public UserAccountService(JdbcTemplate jdbcTemplate, PlanService plans) {
         this.jdbcTemplate = jdbcTemplate;
+        this.plans = plans;
     }
 
     @Transactional
@@ -37,19 +41,24 @@ public class UserAccountService {
             return existingAccounts.get(0);
         }
 
-        List<CurrentUser> accounts = jdbcTemplate.query("""
+        List<CurrentUser> inserted = jdbcTemplate.query("""
                 INSERT INTO users (email, firebase_uid, display_name, picture_url)
                 VALUES (?, ?, ?, ?)
-                ON CONFLICT (lower(email)) DO UPDATE
-                SET firebase_uid = EXCLUDED.firebase_uid,
-                    display_name = EXCLUDED.display_name,
-                    picture_url = EXCLUDED.picture_url
-                WHERE users.firebase_uid IS NULL
-                   OR users.firebase_uid = EXCLUDED.firebase_uid
+                ON CONFLICT DO NOTHING
                 RETURNING id, email, display_name, picture_url
                 """, CURRENT_USER_ROW_MAPPER,
                 identity.email(), identity.uid(), identity.name(), identity.pictureUrl());
+        if (!inserted.isEmpty()) {
+            plans.createPersonalOrganization(inserted.getFirst().id());
+            return inserted.getFirst();
+        }
 
+        List<CurrentUser> accounts = jdbcTemplate.query("""
+                UPDATE users SET firebase_uid = ?, display_name = ?, picture_url = ?
+                WHERE lower(email) = lower(?) AND (firebase_uid IS NULL OR firebase_uid = ?)
+                RETURNING id, email, display_name, picture_url
+                """, CURRENT_USER_ROW_MAPPER, identity.uid(), identity.name(), identity.pictureUrl(),
+                identity.email(), identity.uid());
         if (accounts.isEmpty()) {
             throw new EmailAlreadyLinkedException();
         }

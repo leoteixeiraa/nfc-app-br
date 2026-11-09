@@ -1,0 +1,96 @@
+<article
+  class="flex h-full flex-col rounded-2xl border bg-white p-6 shadow-theme-sm dark:bg-gray-900 sm:p-7"
+  [ngClass]="{
+    'border-brand-500 dark:border-brand-500': highlighted,
+    'border-gray-200 dark:border-gray-800': !highlighted
+  }"
+>
+  <div class="flex min-h-7 items-center justify-between gap-3">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ plan.name }}</h2>
+    @if (highlighted) {
+      <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">Recomendado</span>
+    }
+  </div>
+  <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+    {{ plan.code === 'PRO' ? 'Venda placas sem limites.' : 'Para começar a vender.' }}
+  </p>
+  <div class="mt-5 flex flex-wrap items-baseline gap-2">
+    <span class="text-3xl font-semibold tracking-tight" [ngClass]="highlighted ? 'text-brand-700 dark:text-brand-300' : 'text-gray-950 dark:text-white'">{{ priceLabel() }}</span>
+    @if (billingLabel()) {
+      <span class="text-sm text-gray-500 dark:text-gray-400">{{ billingLabel() }}</span>
+    }
+  </div>
+
+  <div class="my-6 h-px bg-gray-100 dark:bg-gray-800"></div>
+  <ul class="mb-8 flex-1 space-y-4">
+    @if (includesStart) {
+      <li class="flex items-start gap-3 text-sm leading-6 text-gray-700 dark:text-gray-300 sm:text-base">
+        <svg class="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="m5 10 3.25 3.25L15 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span>Tudo do {{ startPlan?.name }}</span>
+      </li>
+    }
+    @for (feature of visibleFeatures; track feature.code) {
+      <li class="flex items-start gap-3 text-sm leading-6 text-gray-700 dark:text-gray-300 sm:text-base">
+        <svg class="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="m5 10 3.25 3.25L15 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <span [ngClass]="{
+          'font-semibold text-brand-700 dark:text-brand-300': plan.code === 'PRO' && feature.code === 'PUBLISHED_TAGS'
+        }">{{ featureLabel(feature) }}</span>
+      </li>
+      @if (plan.code === 'PRO' && includesStart && feature.code === 'CLIENTS') {
+        <li class="flex items-start gap-3 text-sm leading-6 text-gray-700 dark:text-gray-300 sm:text-base">
+          <svg class="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="m5 10 3.25 3.25L15 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>Gestão centralizada de placas e clientes</span>
+        </li>
+      }
+    }
+  </ul>
+
+  @if (plan.code === 'FREE' && currentPlanCode === 'PRO' && currentPlanStatus === 'ACTIVE') {
+    <button
+      type="button"
+      disabled
+      class="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+    >
+      Cancele o Pro para voltar ao Start
+    </button>
+  } @else if (plan.code === 'FREE' && current && currentStatus === 'ACTIVE') {
+    <a
+      routerLink="/"
+      class="inline-flex w-full items-center justify-center rounded-xl bg-brand-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+    >
+      Acessar o app
+    </a>
+  } @else if (plan.code === 'PRO' && current && currentStatus === 'ACTIVE') {
+    <button type="button" disabled class="w-full cursor-default rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+      {{ currentLabel() }}
+    </button>
+  } @else {
+    @if (current && currentLabel()) {
+      <p class="mb-2 text-center text-xs text-gray-600 dark:text-gray-400">{{ currentLabel() }}</p>
+    }
+    @if (plan.code === 'PRO') {
+      <a
+        [href]="proCheckoutUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex w-full items-center justify-center rounded-xl bg-brand-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+      >
+        Assinar Pro
+      </a>
+    } @else if (!signedIn) {
+      <a routerLink="/signin" class="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+        Começar grátis
+      </a>
+    } @else {
+      <button type="button" disabled class="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center text-sm font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+        Plano não confirmado
+      </button>
+    }
+  }
+</article>

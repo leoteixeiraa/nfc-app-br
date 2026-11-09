@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import br.com.nfcapp.auth.CurrentUser;
+import br.com.nfcapp.plans.PlanService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,6 +42,8 @@ class AccountTagsIntegrationTest {
     private JdbcTemplate jdbc;
     @Autowired
     private MockMvc mvc;
+    @Autowired
+    private PlanService plans;
 
     @Test
     void claimsThreePublishedTagsIdempotentlyAndIsolatesAccounts() {
@@ -48,13 +51,12 @@ class AccountTagsIntegrationTest {
         UUID other = UUID.randomUUID();
         jdbc.update("INSERT INTO users (id, email) VALUES (?, ?), (?, ?)",
                 user, user + "@example.test", other, other + "@example.test");
+        plans.createPersonalOrganization(user);
+        plans.createPersonalOrganization(other);
         List<TagService.TagClaim> claims = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             String token = String.valueOf(i + 1).repeat(64);
-            var request = new TagService.TagRequest("Placa " + i, "url", "https://example.com/" + i,
-                    null, null, null, null, token, new BigDecimal("49.90"));
-            var created = tags.create(request, UUID.randomUUID().toString());
-            claims.add(new TagService.TagClaim(created.id(), token));
+            claims.add(new TagService.TagClaim(legacyTag("Placa " + i, "https://example.com/" + i, token), token));
         }
 
         assertEquals(3, tags.claimPublishedTags(user, claims).size());
@@ -68,18 +70,18 @@ class AccountTagsIntegrationTest {
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
                 () -> tags.deactivateForAccount(other, claims.getFirst().code())).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
-                () -> tags.deactivate(claims.getFirst().code(), claims.getFirst().managementToken())).getStatusCode());
+                () -> tags.deactivate(null, claims.getFirst().code(), claims.getFirst().managementToken())).getStatusCode());
     }
 
     @Test
     void rejectsWrongCredentialAndDuplicateEntries() {
         UUID user = UUID.randomUUID();
         jdbc.update("INSERT INTO users (id, email) VALUES (?, ?)", user, user + "@example.test");
+        plans.createPersonalOrganization(user);
         String token = "a".repeat(64);
-        var created = tags.create(new TagService.TagRequest("Loja", "url", "https://example.com",
-                null, null, null, null, token, null), UUID.randomUUID().toString());
-        var valid = new TagService.TagClaim(created.id(), token);
-        var invalid = new TagService.TagClaim(created.id(), "b".repeat(64));
+        String code = legacyTag("Loja", "https://example.com", token);
+        var valid = new TagService.TagClaim(code, token);
+        var invalid = new TagService.TagClaim(code, "b".repeat(64));
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
                 () -> tags.claimPublishedTags(user, List.of(invalid))).getStatusCode());
         assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
@@ -92,16 +94,36 @@ class AccountTagsIntegrationTest {
         UUID other = UUID.randomUUID();
         jdbc.update("INSERT INTO users (id, email) VALUES (?, ?), (?, ?)",
                 user, user + "@example.test", other, other + "@example.test");
+        plans.createPersonalOrganization(user);
+        plans.createPersonalOrganization(other);
         String token = "c".repeat(64);
-        var created = tags.create(new TagService.TagRequest("Conta privada", "url", "https://example.com",
-                null, null, null, null, token, null), UUID.randomUUID().toString());
-        tags.claimPublishedTags(user, List.of(new TagService.TagClaim(created.id(), token)));
+        String code = legacyTag("Conta privada", "https://example.com", token);
+        tags.claimPublishedTags(user, List.of(new TagService.TagClaim(code, token)));
 
         mvc.perform(get("/api/account/tags")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/account/tags").session(session(user)))
                 .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("Conta privada")));
         mvc.perform(get("/api/account/tags").session(session(other)))
                 .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    private String legacyTag(String name, String destination, String token) {
+        String code = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                java.nio.ByteBuffer.allocate(18).putLong(UUID.randomUUID().getMostSignificantBits())
+                        .putLong(UUID.randomUUID().getLeastSignificantBits()).putShort((short) 1).array());
+        String hash;
+        try {
+            hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+        UUID tagId = jdbc.queryForObject("""
+                INSERT INTO nfc_tags (organization_id, public_code, label, management_token_hash, sale_price)
+                VALUES ('00000000-0000-0000-0000-000000000001', ?, ?, ?, 49.90) RETURNING id
+                """, UUID.class, code, name, hash);
+        jdbc.update("INSERT INTO redirect_links (nfc_tag_id, target_url) VALUES (?, ?)", tagId, destination);
+        return code;
     }
 
     private MockHttpSession session(UUID userId) {

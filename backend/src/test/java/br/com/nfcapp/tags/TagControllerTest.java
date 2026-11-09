@@ -13,8 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.server.ResponseStatusException;
+import br.com.nfcapp.auth.CurrentUser;
 
 class TagControllerTest {
+    private final CurrentUser user = new CurrentUser(java.util.UUID.randomUUID(), "test@example.test", "Test", null);
     private TagService tags;
     private GooglePlacesService places;
     private QrCodeService qrCodeService;
@@ -35,24 +37,24 @@ class TagControllerTest {
         TagService.TagRequest request = request("Balcão", "https://example.com");
         TagService.TagResponse first = response("public-code-a");
         TagService.TagResponse retry = response("public-code-a");
-        when(tags.create(request, "idempotency-key")).thenReturn(first, retry);
+        when(tags.create(user.id(), request, "idempotency-key")).thenReturn(first, retry);
 
-        assertEquals(first, controller.create(request, "idempotency-key", new MockHttpServletRequest()));
-        assertEquals(retry, controller.create(request, "idempotency-key", new MockHttpServletRequest()));
-        verify(tags, org.mockito.Mockito.times(2)).create(request, "idempotency-key");
+        assertEquals(first, controller.create(request, "idempotency-key", user, new MockHttpServletRequest()));
+        assertEquals(retry, controller.create(request, "idempotency-key", user, new MockHttpServletRequest()));
+        verify(tags, org.mockito.Mockito.times(2)).create(user.id(), request, "idempotency-key");
     }
 
     @Test
     void duplicationUsesANewIdempotencyKeyAndPublicId() {
         TagService.TagRequest original = request("Mesa 01", "https://example.com");
         TagService.TagRequest duplicate = request("Mesa 01 (cópia)", "https://example.com");
-        when(tags.create(original, "original-key")).thenReturn(response("public-code-a"));
-        when(tags.create(duplicate, "duplicate-key")).thenReturn(response("public-code-b"));
+        when(tags.create(user.id(), original, "original-key")).thenReturn(response("public-code-a"));
+        when(tags.create(user.id(), duplicate, "duplicate-key")).thenReturn(response("public-code-b"));
 
         TagService.TagResponse originalResult =
-                controller.create(original, "original-key", new MockHttpServletRequest());
+                controller.create(original, "original-key", user, new MockHttpServletRequest());
         TagService.TagResponse duplicateResult =
-                controller.create(duplicate, "duplicate-key", new MockHttpServletRequest());
+                controller.create(duplicate, "duplicate-key", user, new MockHttpServletRequest());
 
         assertFalse(originalResult.id().equals(duplicateResult.id()));
     }
@@ -82,16 +84,16 @@ class TagControllerTest {
     @Test
     void updateAndDeactivateRequireAndForwardTheManagementCredential() {
         TagService.TagRequest request = request("Recepção", "https://example.com/novo");
-        when(tags.update(eq("public-code-a"), eq(request), eq("management-token")))
+        when(tags.update(eq(user.id()), eq("public-code-a"), eq(request), eq("management-token")))
                 .thenReturn(response("public-code-a"));
 
         assertEquals(response("public-code-a"),
-                controller.update("public-code-a", request, "management-token", new MockHttpServletRequest()));
+                controller.update("public-code-a", request, "management-token", user, new MockHttpServletRequest()));
         assertEquals(HttpStatus.NO_CONTENT,
-                controller.deactivate("public-code-a", "management-token", new MockHttpServletRequest()).getStatusCode());
+                controller.deactivate("public-code-a", "management-token", user, new MockHttpServletRequest()).getStatusCode());
 
-        verify(tags).update("public-code-a", request, "management-token");
-        verify(tags).deactivate("public-code-a", "management-token");
+        verify(tags).update(user.id(), "public-code-a", request, "management-token");
+        verify(tags).deactivate(user.id(), "public-code-a", "management-token");
     }
 
     @Test

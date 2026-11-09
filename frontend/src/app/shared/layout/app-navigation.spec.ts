@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuthSessionStore } from '../../core/auth/auth-session.store';
+import { CurrentPlanService } from '../../core/plans/current-plan.service';
 import { SidebarService } from '../services/sidebar.service';
 import { AppHeaderComponent } from './app-header/app-header.component';
 import { AppSidebarComponent } from './app-sidebar/app-sidebar.component';
@@ -18,6 +19,7 @@ describe('Navegação do MVP', () => {
         provideRouter([]),
         { provide: AuthService, useValue: { getCurrentUser: () => of(null) } },
         { provide: AuthSessionStore, useValue: { currentUser: user } },
+        { provide: CurrentPlanService, useValue: { isPro: signal(false), label: signal(null), isLoading: signal(false) } },
       ],
     }).compileComponents();
   });
@@ -31,6 +33,7 @@ describe('Navegação do MVP', () => {
       ['Dashboard', '/'],
       ['Minhas placas', '/tags'],
       ['Clientes', '/clientes'],
+      ['Planos e assinatura', '/plans'],
     ]);
     expect(fixture.nativeElement.textContent).not.toContain('Others');
   });
@@ -75,5 +78,19 @@ describe('Navegação do MVP', () => {
     fixture.detectChanges();
     const link = fixture.nativeElement.querySelector('app-user-dropdown a[href="/signin"]') as HTMLAnchorElement;
     expect(link.textContent).toContain('Entrar / Criar conta');
+  });
+
+  it('mantém o menu de usuário acessível ao abrir o menu mobile', () => {
+    spyOnProperty(window, 'innerWidth', 'get').and.returnValue(375);
+    const fixture = TestBed.createComponent(AppHeaderComponent);
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[aria-label="Toggle application menu"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const dropdown = fixture.nativeElement.querySelector('app-user-dropdown') as HTMLElement;
+    expect(dropdown.parentElement?.classList).toContain('flex');
+    (dropdown.querySelector('.dropdown-toggle') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(dropdown.querySelector('a[href="/profile"]')).not.toBeNull();
   });
 });

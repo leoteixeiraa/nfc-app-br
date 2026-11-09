@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+import br.com.nfcapp.plans.PlanService;
+
 
 @Service
 public class TagService {
@@ -29,53 +31,64 @@ public class TagService {
     private final PixPayloadService pixPayloadService;
     private final QrCodeService qrCodeService;
     private final String publicBaseUrl;
+    private final PlanService plans;
 
     public TagService(
             JdbcTemplate jdbc,
             PixPayloadService pixPayloadService,
             QrCodeService qrCodeService,
+            PlanService plans,
             @Value("${app.public-base-url:http://localhost}") String publicBaseUrl) {
         this.jdbc = jdbc;
         this.pixPayloadService = pixPayloadService;
         this.qrCodeService = qrCodeService;
+        this.plans = plans;
         this.publicBaseUrl = validatePublicBaseUrl(publicBaseUrl);
     }
 
     @Transactional
-    public TagResponse create(TagRequest request, String idempotencyKey) {
+    public TagResponse create(UUID userId, TagRequest request, String idempotencyKey) {
         validateRequest(request, true);
         String normalizedKey = requireIdempotencyKey(idempotencyKey);
         String tokenHash = hashToken(request.managementToken());
+        UUID organizationId = plans.currentOrganization(userId);
+        plans.lockOrganization(organizationId);
         var existing = jdbc.query(
-                "SELECT public_code, management_token_hash FROM nfc_tags WHERE idempotency_key = ?",
-                (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash")),
+                "SELECT public_code, management_token_hash, owner_user_id FROM nfc_tags WHERE idempotency_key = ?",
+                (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash"),
+                        rs.getObject("owner_user_id", UUID.class)),
                 normalizedKey);
         if (!existing.isEmpty()) {
             ExistingTag previous = existing.getFirst();
-            if (!MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
+            if (!userId.equals(previous.ownerId()) || previous.tokenHash() == null
+                    || !MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
                     tokenHash.getBytes(StandardCharsets.US_ASCII))) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Chave de criação já utilizada.");
             }
             return get(previous.code());
         }
 
+        plans.validatePublication(organizationId);
         String code = newPublicCode();
         String destination = destinationFor(request);
         int inserted = jdbc.update("""
                 INSERT INTO nfc_tags
-                    (organization_id, public_code, label, destination_type,                     destination_label, management_token_hash, idempotency_key, sale_price)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (organization_id, public_code, label, destination_type, destination_label,
+                     management_token_hash, idempotency_key, sale_price, owner_user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
                 """,
-                ANONYMOUS_ORGANIZATION_ID, code, request.name().trim(), request.type(),
+                organizationId, code, request.name().trim(), request.type(),
                                     normalizeDestinationLabel(request.destinationLabel()), tokenHash, normalizedKey,
-                                    normalizeSalePrice(request.salePrice()));
+                                    normalizeSalePrice(request.salePrice()), userId);
         if (inserted == 0) {
             ExistingTag previous = jdbc.queryForObject(
-                    "SELECT public_code, management_token_hash FROM nfc_tags WHERE idempotency_key = ?",
-                    (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash")),
+                    "SELECT public_code, management_token_hash, owner_user_id FROM nfc_tags WHERE idempotency_key = ?",
+                    (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash"),
+                            rs.getObject("owner_user_id", UUID.class)),
                     normalizedKey);
-            if (previous == null || !MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
+            if (previous == null || !userId.equals(previous.ownerId()) || previous.tokenHash() == null
+                    || !MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
                     tokenHash.getBytes(StandardCharsets.US_ASCII))) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Chave de criação já utilizada.");
             }
@@ -89,20 +102,31 @@ public class TagService {
     }
 
     @Transactional
-    public TagResponse update(String code, TagRequest request, String managementToken) {
+    public TagResponse update(UUID userId, String code, TagRequest request, String managementToken) {
         validateRequest(request, false);
         String tokenHash = hashToken(managementToken);
-        UUID tagId = findManagedTagId(code, tokenHash);
-        return updateTag(code, tagId, request);
+        ManagedTag tag = findManagedTag(code, tokenHash, userId);
+        return updateTag(code, tag.id(), tag.organizationId(), request);
     }
 
     @Transactional
     public TagResponse updateForAccount(UUID userId, String code, TagRequest request) {
         validateRequest(request, false);
-        return updateTag(code, findAccountTagId(userId, code), request);
+        UUID organizationId = plans.currentOrganization(userId);
+        plans.lockOrganization(organizationId);
+        return updateTag(code, findAccountTagId(userId, organizationId, code), organizationId, request);
     }
 
-    private TagResponse updateTag(String code, UUID tagId, TagRequest request) {
+    private TagResponse updateTag(String code, UUID tagId, UUID organizationId, TagRequest request) {
+        Boolean active = jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM redirect_links WHERE nfc_tag_id = ? AND is_active)",
+                Boolean.class, tagId);
+        if (Boolean.FALSE.equals(active)) {
+            if (ANONYMOUS_ORGANIZATION_ID.equals(organizationId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vincule a placa a uma conta antes de publicá-la.");
+            }
+            plans.validatePublication(organizationId);
+        }
         jdbc.update("UPDATE redirect_links SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE nfc_tag_id = ? AND is_active",
                 tagId);
         jdbc.update("""
@@ -119,14 +143,15 @@ public class TagService {
     }
 
     @Transactional
-    public void deactivate(String code, String managementToken) {
-        UUID tagId = findManagedTagId(code, hashToken(managementToken));
-        deactivateTag(tagId);
+    public void deactivate(UUID userId, String code, String managementToken) {
+        deactivateTag(findManagedTag(code, hashToken(managementToken), userId).id());
     }
 
     @Transactional
     public void deactivateForAccount(UUID userId, String code) {
-        deactivateTag(findAccountTagId(userId, code));
+        UUID organizationId = plans.currentOrganization(userId);
+        plans.lockOrganization(organizationId);
+        deactivateTag(findAccountTagId(userId, organizationId, code));
     }
 
     private void deactivateTag(UUID tagId) {
@@ -174,19 +199,24 @@ public class TagService {
         if (claims == null || claims.size() > 100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lista de placas inválida.");
         }
-        var responses = new java.util.ArrayList<TagResponse>();
+        var responses = new java.util.HashMap<String, TagResponse>();
         var seen = new java.util.HashSet<String>();
         for (TagClaim claim : claims) {
             if (claim == null || claim.code() == null || !claim.code().matches("[A-Za-z0-9_-]{24}")
                     || !seen.add(claim.code())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lista de placas inválida.");
             }
+        }
+        UUID organizationId = plans.currentOrganization(userId);
+        plans.lockOrganization(organizationId);
+        for (TagClaim claim : claims.stream().sorted(java.util.Comparator.comparing(TagClaim::code)).toList()) {
             String tokenHash = hashToken(claim.managementToken());
             var matches = jdbc.query("""
-                    SELECT management_token_hash, owner_user_id
+                    SELECT management_token_hash, owner_user_id, organization_id
                     FROM nfc_tags WHERE public_code = ? FOR UPDATE
                     """, (rs, row) -> new ClaimableTag(
-                            rs.getString("management_token_hash"), rs.getObject("owner_user_id", UUID.class)),
+                            rs.getString("management_token_hash"), rs.getObject("owner_user_id", UUID.class),
+                            rs.getObject("organization_id", UUID.class)),
                     claim.code());
             if (matches.isEmpty() || matches.getFirst().tokenHash() == null
                     || !MessageDigest.isEqual(matches.getFirst().tokenHash().getBytes(StandardCharsets.US_ASCII),
@@ -194,20 +224,25 @@ public class TagService {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Não foi possível vincular a placa.");
             }
             UUID owner = matches.getFirst().ownerId();
-            if (owner != null && !owner.equals(userId)) {
+            if (owner != null && (!owner.equals(userId) || !organizationId.equals(matches.getFirst().organizationId()))
+                    || owner == null && !ANONYMOUS_ORGANIZATION_ID.equals(matches.getFirst().organizationId())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Não foi possível vincular a placa.");
             }
             if (owner == null) {
-                jdbc.update("UPDATE nfc_tags SET owner_user_id = ? WHERE public_code = ?", userId, claim.code());
+                jdbc.update("UPDATE nfc_tags SET owner_user_id = ?, organization_id = ? WHERE public_code = ?",
+                        userId, organizationId, claim.code());
             }
-            responses.add(get(claim.code()));
+            responses.put(claim.code(), get(claim.code()));
         }
-        return responses;
+        return claims.stream().map(claim -> responses.get(claim.code())).toList();
     }
 
     public List<TagResponse> listForAccount(UUID userId) {
-        return jdbc.query("SELECT public_code FROM nfc_tags WHERE owner_user_id = ? ORDER BY created_at DESC",
-                (rs, row) -> rs.getString("public_code"), userId).stream().map(this::get).toList();
+        return jdbc.query("""
+                SELECT public_code FROM nfc_tags
+                WHERE owner_user_id = ? AND organization_id = ? ORDER BY created_at DESC
+                """, (rs, row) -> rs.getString("public_code"), userId, plans.currentOrganization(userId))
+                .stream().map(this::get).toList();
     }
 
     public PublicDestination findPublicDestination(String code) {
@@ -297,22 +332,33 @@ public class TagService {
         return label == null || label.isBlank() ? null : label.trim();
     }
 
-    private UUID findManagedTagId(String code, String tokenHash) {
+    private ManagedTag findManagedTag(String code, String tokenHash, UUID userId) {
+        var organizations = jdbc.query("SELECT organization_id FROM nfc_tags WHERE public_code = ?",
+                (rs, row) -> rs.getObject(1, UUID.class), code);
+        if (organizations.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
+        }
+        plans.lockOrganization(organizations.getFirst());
         var ids = jdbc.query(
-                "SELECT id, management_token_hash FROM nfc_tags WHERE public_code = ? AND owner_user_id IS NULL FOR UPDATE",
-                (rs, row) -> new ManagedTag(rs.getObject("id", UUID.class), rs.getString("management_token_hash")),
+                "SELECT id, management_token_hash, owner_user_id, organization_id FROM nfc_tags WHERE public_code = ? FOR UPDATE",
+                (rs, row) -> new ManagedTag(rs.getObject("id", UUID.class), rs.getString("management_token_hash"),
+                        rs.getObject("owner_user_id", UUID.class), rs.getObject("organization_id", UUID.class)),
                 code);
-        if (ids.isEmpty() || ids.getFirst().tokenHash() == null
+        if (ids.isEmpty() || !organizations.getFirst().equals(ids.getFirst().organizationId())
+                || (ids.getFirst().ownerId() != null && !ids.getFirst().ownerId().equals(userId))
+                || (ids.getFirst().ownerId() != null
+                    && !ids.getFirst().organizationId().equals(plans.currentOrganization(userId)))
+                || ids.getFirst().tokenHash() == null
                 || !MessageDigest.isEqual(ids.getFirst().tokenHash().getBytes(StandardCharsets.US_ASCII),
                         tokenHash.getBytes(StandardCharsets.US_ASCII))) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
         }
-        return ids.getFirst().id();
+        return ids.getFirst();
     }
 
-    private UUID findAccountTagId(UUID userId, String code) {
-        var ids = jdbc.query("SELECT id FROM nfc_tags WHERE public_code = ? AND owner_user_id = ? FOR UPDATE",
-                (rs, row) -> rs.getObject("id", UUID.class), code, userId);
+    private UUID findAccountTagId(UUID userId, UUID organizationId, String code) {
+        var ids = jdbc.query("SELECT id FROM nfc_tags WHERE public_code = ? AND owner_user_id = ? AND organization_id = ? FOR UPDATE",
+                (rs, row) -> rs.getObject("id", UUID.class), code, userId, organizationId);
         if (ids.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Placa não encontrada.");
         }
@@ -366,13 +412,13 @@ public class TagService {
                 .stream().anyMatch(domain -> host.equalsIgnoreCase(domain) || host.toLowerCase(Locale.ROOT).endsWith("." + domain));
     }
 
-    private record ExistingTag(String code, String tokenHash) {
+    private record ExistingTag(String code, String tokenHash, UUID ownerId) {
     }
 
-    private record ManagedTag(UUID id, String tokenHash) {
+    private record ManagedTag(UUID id, String tokenHash, UUID ownerId, UUID organizationId) {
     }
 
-    private record ClaimableTag(String tokenHash, UUID ownerId) {
+    private record ClaimableTag(String tokenHash, UUID ownerId, UUID organizationId) {
     }
 
     public record TagClaim(String code, String managementToken) {

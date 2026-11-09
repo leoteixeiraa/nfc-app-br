@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import br.com.nfcapp.auth.CurrentUser;
 
 @RestController
 public class TagController {
@@ -47,9 +49,13 @@ public class TagController {
     public TagService.TagResponse create(
             @RequestBody TagService.TagRequest request,
             @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @AuthenticationPrincipal CurrentUser user,
             HttpServletRequest servletRequest) {
         limit(servletRequest, "create", 20, Duration.ofHours(1));
-        return tags.create(request, idempotencyKey);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        return tags.create(user.id(), request, idempotencyKey);
     }
 
     @PutMapping("/api/tags/{code}")
@@ -57,18 +63,20 @@ public class TagController {
             @PathVariable String code,
             @RequestBody TagService.TagRequest request,
             @RequestHeader("X-Tag-Management-Token") String token,
+            @AuthenticationPrincipal CurrentUser user,
             HttpServletRequest servletRequest) {
         limit(servletRequest, "manage", 60, Duration.ofHours(1));
-        return tags.update(code, request, token);
+        return tags.update(user == null ? null : user.id(), code, request, token);
     }
 
     @DeleteMapping("/api/tags/{code}")
     public ResponseEntity<Void> deactivate(
             @PathVariable String code,
             @RequestHeader("X-Tag-Management-Token") String token,
+            @AuthenticationPrincipal CurrentUser user,
             HttpServletRequest servletRequest) {
         limit(servletRequest, "manage", 60, Duration.ofHours(1));
-        tags.deactivate(code, token);
+        tags.deactivate(user == null ? null : user.id(), code, token);
         return ResponseEntity.noContent().build();
     }
 

@@ -17,6 +17,7 @@ frontend/coverage/
 
 # Backups and local data
 backups/
+instancia/
 *.dump
 *.sql.gz
 

@@ -25,11 +25,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.web.server.ResponseStatusException;
+import br.com.nfcapp.plans.PlanService;
 
 class TagSalePriceTest {
     private static final String CODE = "abcdefghijklmnopqrstuvwx";
     private static final String TOKEN = "a".repeat(64);
     private static final String KEY = UUID.randomUUID().toString();
+    private static final UUID USER = UUID.randomUUID();
+    private static final UUID ORGANIZATION = UUID.randomUUID();
 
     private JdbcTemplate jdbc;
     private TagService service;
@@ -37,7 +40,9 @@ class TagSalePriceTest {
     @BeforeEach
     void setUp() {
         jdbc = mock(JdbcTemplate.class);
-        service = spy(new TagService(jdbc, mock(PixPayloadService.class), mock(QrCodeService.class), "https://nfc.app.br"));
+        PlanService plans = mock(PlanService.class);
+        when(plans.currentOrganization(USER)).thenReturn(ORGANIZATION);
+        service = spy(new TagService(jdbc, mock(PixPayloadService.class), mock(QrCodeService.class), plans, "https://nfc.app.br"));
     }
 
     @Test
@@ -46,11 +51,11 @@ class TagSalePriceTest {
         when(jdbc.update(contains("INSERT INTO nfc_tags"), any(Object[].class))).thenReturn(1);
         doReturn(null).when(service).get(anyString());
 
-        service.create(request(new BigDecimal("49.9")), KEY);
+        service.create(USER, request(new BigDecimal("49.9")), KEY);
 
         ArgumentCaptor<Object> args = ArgumentCaptor.forClass(Object.class);
         verify(jdbc).update(contains("sale_price"), args.capture(), args.capture(), args.capture(), args.capture(),
-                args.capture(), args.capture(), args.capture(), args.capture());
+                args.capture(), args.capture(), args.capture(), args.capture(), args.capture());
         assertEquals(new BigDecimal("49.90"), args.getAllValues().get(7));
     }
 
@@ -60,22 +65,23 @@ class TagSalePriceTest {
         when(jdbc.update(contains("INSERT INTO nfc_tags"), any(Object[].class))).thenReturn(1);
         doReturn(null).when(service).get(anyString());
 
-        service.create(request(null), KEY);
+        service.create(USER, request(null), KEY);
 
         ArgumentCaptor<Object> args = ArgumentCaptor.forClass(Object.class);
         verify(jdbc).update(contains("sale_price"), args.capture(), args.capture(), args.capture(), args.capture(),
-                args.capture(), args.capture(), args.capture(), args.capture());
+                args.capture(), args.capture(), args.capture(), args.capture(), args.capture());
         assertEquals(null, args.getAllValues().get(7));
     }
 
     @Test
     void updateChangesAndRemovesTheSalePrice() {
         when(jdbc.query(anyString(), ArgumentMatchers.<RowMapper<Object>>any(), eq(CODE)))
-                .thenAnswer(invocation -> List.of(managed()));
+                .thenReturn(List.of(ORGANIZATION), List.of(managed()), List.of(ORGANIZATION), List.of(managed()));
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), any(UUID.class))).thenReturn(true);
         doReturn(null).when(service).get(CODE);
 
-        service.update(CODE, request(new BigDecimal("10")), TOKEN);
-        service.update(CODE, request(null), TOKEN);
+        service.update(USER, CODE, request(new BigDecimal("10")), TOKEN);
+        service.update(USER, CODE, request(null), TOKEN);
 
         ArgumentCaptor<Object> args = ArgumentCaptor.forClass(Object.class);
         verify(jdbc, org.mockito.Mockito.times(2)).update(contains("SET label = ?"), args.capture(), args.capture(),
@@ -98,7 +104,7 @@ class TagSalePriceTest {
         when(jdbc.update(contains("INSERT INTO nfc_tags"), any(Object[].class))).thenReturn(1);
         doReturn(null).when(service).get(anyString());
 
-        service.create(request(BigDecimal.ZERO), KEY);
+        service.create(USER, request(BigDecimal.ZERO), KEY);
     }
 
     @Test
@@ -117,7 +123,7 @@ class TagSalePriceTest {
 
     private void assertBadRequest(BigDecimal price) {
         ResponseStatusException error =
-                assertThrows(ResponseStatusException.class, () -> service.create(request(price), KEY));
+                assertThrows(ResponseStatusException.class, () -> service.create(USER, request(price), KEY));
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
     }
 
@@ -126,7 +132,7 @@ class TagSalePriceTest {
             Class<?> type = Class.forName("br.com.nfcapp.tags.TagService$ManagedTag");
             var constructor = type.getDeclaredConstructors()[0];
             constructor.setAccessible(true);
-            return constructor.newInstance(UUID.randomUUID(), hash());
+            return constructor.newInstance(UUID.randomUUID(), hash(), USER, ORGANIZATION);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
         }

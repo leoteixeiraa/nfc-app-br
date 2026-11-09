@@ -16,17 +16,19 @@
     (click)="toggleDropdown($event)"
     type="button"
   >
-    <span class="me-3 size-11 overflow-hidden rounded-lg shrink-0">
-      <img
-        [src]="sessionStore.currentUser()?.pictureUrl || '/images/user/owner.png'"
-        [alt]="sessionStore.currentUser()?.name || 'Conta'"
-        class="size-full object-cover rounded-lg"
-        width="44"
-        height="44"
-        referrerpolicy="no-referrer"
-        (error)="$any($event.target).src = '/images/user/owner.png'"
-      />
-    </span>
+    <app-premium-avatar class="me-3 size-11">
+      <span class="size-full overflow-hidden rounded-full">
+        <img
+          [src]="sessionStore.currentUser()?.pictureUrl || '/images/user/owner.png'"
+          [alt]="sessionStore.currentUser()?.name || 'Conta'"
+          class="size-full object-cover"
+          width="44"
+          height="44"
+          referrerpolicy="no-referrer"
+          (error)="$any($event.target).src = '/images/user/owner.png'"
+        />
+      </span>
+    </app-premium-avatar>
 
     <span class="me-1 block text-sm font-medium">
       {{ sessionStore.currentUser()?.name || sessionStore.currentUser()?.email || 'Conta' }}
@@ -58,7 +60,15 @@
       <div class="px-3 py-2">
         <span class="block text-sm font-medium text-gray-700 dark:text-gray-400">
           {{ sessionStore.currentUser()?.name || 'Conta Google' }}
+          @if (plan.label(); as label) {
+            <span class="nfc-plan-label" [class.nfc-plan-label--premium]="plan.isPremium()">Plano {{ label }}</span>
+          }
         </span>
+        @if (!plan.label()) {
+          <span class="block text-xs text-gray-500 dark:text-gray-400" role="status">
+            {{ plan.isLoading() ? 'Consultando plano…' : 'Plano indisponível' }}
+          </span>
+        }
         <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
           {{ sessionStore.currentUser()?.email }}
         </span>

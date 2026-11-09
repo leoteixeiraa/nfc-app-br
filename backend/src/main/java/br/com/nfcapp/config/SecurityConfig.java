@@ -26,9 +26,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/status", "/api/auth/csrf",
                                 "/actuator/health", "/actuator/health/**", "/error",
                                 "/api/places/search", "/api/places/*/details", "/api/places/*/review-link",
-                                "/api/tags/public/**").permitAll()
+                                "/api/tags/public/**", "/api/plans").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/session").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/tags").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/tags").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/pix/payload").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/tags/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/tags/**").permitAll()
@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
                         .requestMatchers("/api/account/**").authenticated()
+                        .requestMatchers("/api/organizations/current/plan").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(unauthorizedEntryPoint()))

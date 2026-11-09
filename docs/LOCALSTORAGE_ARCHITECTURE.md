@@ -2,9 +2,10 @@
 
 ## Situação atual
 
-O dashboard e a criação de placas estão disponíveis sem login. A criação publica
-o link por meio da API e guarda no navegador os dados necessários ao gerenciamento
-da placa. Após o login, placas publicadas que ainda não pertencem a uma conta são
+O dashboard e os rascunhos locais continuam disponíveis sem login. Novas publicações
+exigem login e ficam vinculadas à organização da conta. A interface ainda não foi
+adaptada para orientar essa exigência. A criação guarda no navegador os dados necessários ao gerenciamento
+da placa. Após o login, placas antigas que ainda não pertencem a uma conta são
 associadas automaticamente usando a credencial de gerenciamento local; placas da
 conta são importadas para o navegador e atualizadas quando necessário.
 
@@ -28,10 +29,13 @@ clientes nem acesso entre dispositivos para esses dados.
 Os endpoints autenticados de associação e consulta ficam habilitados por padrão.
 `APP_ACCOUNT_TAGS_ENABLED=false` pode desativá-los em uma implantação, mas, nesse
 caso, a sincronização da interface não estará disponível. A associação verifica a
-credencial de gerenciamento e o titular, sem alterar o link público. A migration
-adiciona a referência ao proprietário e não transfere placas existentes
-automaticamente: elas são associadas após login somente se ainda estiverem neste
+credencial de gerenciamento e o titular, sem alterar o link público. Placas antigas
+anônimas são associadas após login somente se ainda estiverem neste
 navegador e tiverem sua credencial de gerenciamento local.
+
+As placas já vinculadas a usuários são associadas à organização corrente pela
+migration V8. A associação preserva placas antigas mesmo acima do limite do plano;
+novas publicações e reativações são bloqueadas enquanto não houver vaga.
 
 Clientes e vínculos continuam armazenados apenas neste navegador e não são
 sincronizados com a conta. Placas locais sem credencial de gerenciamento não podem

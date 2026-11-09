@@ -24,6 +24,7 @@ import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { ClientsComponent } from './pages/clients/clients.component';
 import { ClientDetailComponent } from './pages/clients/client-detail.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { PlansPageComponent } from './pages/plans/plans-page.component';
 
 export const routes: Routes = [
   {
@@ -65,6 +66,11 @@ export const routes: Routes = [
         path: 'clientes/:placeId',
         component: ClientDetailComponent,
         title: 'Detalhes do cliente | NFC.APP',
+      },
+      {
+        path: 'plans',
+        component: PlansPageComponent,
+        title: 'Planos e assinatura | NFC.APP',
       },
       {
         path: '',

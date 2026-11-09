@@ -1,6 +1,6 @@
 # NFC.APP
 
-Plataforma SaaS para criar e gerenciar placas NFC, com redirecionamento público persistente e gerenciamento anônimo no mesmo navegador.
+Plataforma SaaS para criar e gerenciar placas NFC, com redirecionamento público persistente e planos por organização.
 
 ## Stack
 
@@ -55,7 +55,15 @@ O login Google é mantido no navegador e a sessão do servidor é renovada autom
 
 ## Placas NFC
 
-Placas são publicadas no backend e persistidas no PostgreSQL. O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. Após o login, placas publicadas ainda não associadas são vinculadas à conta usando essa credencial, e as placas da conta são importadas para o navegador. Limpar os dados antes de associar uma placa pode impedir seu gerenciamento por este navegador, mas não invalida a placa pública. Clientes e vínculos continuam locais.
+Novas publicações exigem login e são vinculadas à organização da conta. O plano Start permite até três placas publicadas; edições de placas ativas não consomem uma nova vaga. Placas anônimas anteriormente publicadas continuam funcionando e podem ser associadas após o login, mesmo que o consumo ultrapasse o limite. Nesse caso, novas publicações e reativações ficam bloqueadas até haver uma vaga. A interface ainda não foi adaptada para orientar o login ou mostrar o limite.
+
+O identificador público permite somente o redirecionamento; uma credencial de gerenciamento diferente é mantida no `localStorage` do navegador que criou a placa. A gestão por credencial de placas associadas também exige a sessão do proprietário. Após o login, placas publicadas ainda não associadas são vinculadas à conta usando essa credencial, e as placas da conta são importadas para o navegador. Limpar os dados antes de associar uma placa pode impedir seu gerenciamento por este navegador, mas não invalida a placa pública. Clientes e vínculos continuam locais.
+
+## Planos
+
+Cada nova conta recebe uma organização pessoal e uma assinatura Start (FREE). A migration V8 cria assinaturas FREE para organizações existentes e organizações pessoais para usuários sem vínculo. Enquanto não houver seleção de organização, a organização corrente é o primeiro vínculo por data e identificador.
+
+`GET /api/plans` apresenta o catálogo e `GET /api/organizations/current/plan` requer sessão autenticada e informa assinatura, capacidades, limite e consumo de placas ativas. `entitled` indica a capacidade prevista no plano e `enabled` indica que ela também está disponível; capacidades Pro futuras permanecem indisponíveis. O preço inicial do Pro é R$ 29,90 mensal, armazenado no catálogo `plans` e configurável por operação administrativa no banco. Alterar o preço não implementa cobrança nem checkout. Não há endpoint para mudar planos; futuras integrações de pagamento devem fazer a transição por código confiável, usando o serviço de planos e seu bloqueio transacional.
 
 O caminho `/t/{id}` é encaminhado pelo Caddy ao backend. Links HTTPS são redirecionados sem cache permanente; placas Pix exibem o payload estático BR Code e seu QR Code. O NFC.APP não processa pagamentos. A busca Google Places e a criação/consulta de placas têm limites básicos por endereço de origem.
 

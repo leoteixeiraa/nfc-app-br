@@ -14,18 +14,20 @@
         class="rounded-xl border border-gray-200 p-5 dark:border-gray-700"
       >
         <div class="flex items-center gap-4">
-          <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xl font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            @if (user.pictureUrl) {
-              <img
-                [src]="user.pictureUrl"
-                [alt]="'Foto de perfil de ' + (user.name || user.email)"
-                class="size-full object-cover"
-                referrerpolicy="no-referrer"
-              />
-            } @else {
-              {{ (user.name || user.email).charAt(0).toUpperCase() }}
-            }
-          </div>
+          <app-premium-avatar class="size-16">
+            <div class="flex size-full items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xl font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              @if (user.pictureUrl) {
+                <img
+                  [src]="user.pictureUrl"
+                  [alt]="'Foto de perfil de ' + (user.name || user.email)"
+                  class="size-full object-cover"
+                  referrerpolicy="no-referrer"
+                />
+              } @else {
+                {{ (user.name || user.email).charAt(0).toUpperCase() }}
+              }
+            </div>
+          </app-premium-avatar>
           <div class="min-w-0">
             <h2 class="truncate text-base font-semibold text-gray-800 dark:text-white/90">
               {{ user.name || 'Conta Google' }}

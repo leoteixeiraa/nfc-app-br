@@ -7,6 +7,8 @@ import { ButtonComponent } from '../../ui/button/button.component';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AuthSessionStore } from '../../../../core/auth/auth-session.store';
 import { LogoutBlockedError } from '../../../../core/tags/tag-account-sync.service';
+import { PremiumAvatarComponent } from '../../ui/avatar/premium-avatar.component';
+import { CurrentPlanService } from '../../../../core/plans/current-plan.service';
 
 interface Language {
   id: string;
@@ -19,7 +21,19 @@ interface Language {
 @Component({
   selector: 'app-user-dropdown',
   templateUrl: './user-dropdown.component.html',
-  imports: [ButtonComponent, CommonModule, RouterModule]
+  styles: `
+    .nfc-plan-label {
+      display: inline-block;
+      margin-inline-start: 4px;
+      color: #667085;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .nfc-plan-label--premium { color: #936015; }
+    :host-context(.dark) .nfc-plan-label { color: #98a2b3; }
+    :host-context(.dark) .nfc-plan-label--premium { color: #f5d477; }
+  `,
+  imports: [ButtonComponent, CommonModule, RouterModule, PremiumAvatarComponent]
 })
 export class UserDropdownComponent implements OnInit, OnDestroy {
   readonly dropdownId = 'user-dropdown';
@@ -65,6 +79,7 @@ export class UserDropdownComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private authService: AuthService,
     public sessionStore: AuthSessionStore,
+    public readonly plan: CurrentPlanService,
     private router: Router
   ) {}
 

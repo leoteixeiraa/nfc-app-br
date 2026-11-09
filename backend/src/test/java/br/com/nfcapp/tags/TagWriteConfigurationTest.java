@@ -19,7 +19,8 @@ class TagWriteConfigurationTest {
     @Test
     void createsContinuationQrWithoutDestinationOrCredential() {
         QrCodeService qr = mock(QrCodeService.class);
-        TagService service = spy(new TagService(mock(JdbcTemplate.class), mock(PixPayloadService.class), qr, "https://nfc.app.br"));
+        TagService service = spy(new TagService(mock(JdbcTemplate.class), mock(PixPayloadService.class), qr,
+                mock(br.com.nfcapp.plans.PlanService.class), "https://nfc.app.br"));
         doReturn(new TagService.PublicDestination("url", "Balcão", "https://example.com"))
                 .when(service).findPublicDestination(CODE);
         when(qr.toDataUri("https://nfc.app.br/tags/" + CODE + "/write")).thenReturn("qr");
@@ -31,7 +32,7 @@ class TagWriteConfigurationTest {
     @Test
     void rejectsInactiveOrInvalidCodes() {
         TagService service = spy(new TagService(mock(JdbcTemplate.class), mock(PixPayloadService.class),
-                mock(QrCodeService.class), "https://nfc.app.br"));
+                mock(QrCodeService.class), mock(br.com.nfcapp.plans.PlanService.class), "https://nfc.app.br"));
         doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(service).findPublicDestination(CODE);
         assertThrows(ResponseStatusException.class, () -> service.writeConfiguration(CODE));
         assertThrows(ResponseStatusException.class, () -> service.writeConfiguration("../invalid"));

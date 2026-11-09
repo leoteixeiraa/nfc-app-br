@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { PageBreadcrumbComponent } from '../../shared/components/common/page-breadcrumb/page-breadcrumb.component';
 import { AuthSessionStore } from '../../core/auth/auth-session.store';
+import { PremiumAvatarComponent } from '../../shared/components/ui/avatar/premium-avatar.component';
 
 // Componentes originais do template, preservados para uso futuro:
 // import { AddressComponent } from './address';
@@ -22,7 +23,7 @@ import { AuthSessionStore } from '../../core/auth/auth-session.store';
     DangerComponent,
   ],
   */
-  imports: [CommonModule, PageBreadcrumbComponent],
+  imports: [CommonModule, PageBreadcrumbComponent, PremiumAvatarComponent],
   host: {
     class: 'block',
   },
