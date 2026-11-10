@@ -95,7 +95,6 @@
 
             <div class="mt-auto flex min-w-0 flex-wrap gap-2">
               <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'edit']">Editar</a>
-              <button app-button variant="outline" size="sm" type="button" (click)="duplicate(tag)">Duplicar</button>
               @if (tag.publicUrl) {
                 <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'write']">Gravar NFC</a>
                 <button app-button variant="outline" size="sm" type="button" (click)="openQrCode(tag)">

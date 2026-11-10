@@ -10,6 +10,7 @@
         "test": "ng test"
     },
     "private": true,
+    
     "engines": {
         "node": "22.x"
     },

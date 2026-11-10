@@ -32,6 +32,7 @@ describe('Aviso de sincronização das placas', () => {
     const element = fixture.nativeElement as HTMLElement;
     const session = TestBed.inject(AuthSessionStore);
     expect(element.textContent).toContain('Loja');
+    expect(element.textContent).not.toContain('Duplicar');
     expect(element.textContent).toContain('Suas placas estão salvas neste dispositivo. Crie uma conta para gerenciá-las com mais segurança.');
     expect(element.querySelector('a[href="/signup"]')).not.toBeNull();
     session.setUser({ id: '1', name: 'Pessoa', email: 'pessoa@example.com', pictureUrl: null });
