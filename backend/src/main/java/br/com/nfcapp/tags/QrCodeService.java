@@ -13,10 +13,18 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 @Service
 public class QrCodeService {
     public String toDataUri(String value) {
+        return toDataUri(value, 2);
+    }
+
+    public String toPermanentLinkDataUri(String value) {
+        return toDataUri(value, 4);
+    }
+
+    private String toDataUri(String value, int margin) {
         try {
             var hints = java.util.Map.of(
                     EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M,
-                    EncodeHintType.MARGIN, 2);
+                    EncodeHintType.MARGIN, margin);
             var matrix = new QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 240, 240, hints);
             StringBuilder svg = new StringBuilder(
                     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 240\"><path fill=\"#fff\" d=\"M0 0h240v240H0z\"/><path fill=\"#111\" d=\"");

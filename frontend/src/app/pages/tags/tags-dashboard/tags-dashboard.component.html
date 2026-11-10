@@ -93,11 +93,29 @@
               </p>
             </div>
 
-            <div class="mt-auto flex flex-wrap gap-2">
+            <div class="mt-auto flex min-w-0 flex-wrap gap-2">
               <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'edit']">Editar</a>
               <button app-button variant="outline" size="sm" type="button" (click)="duplicate(tag)">Duplicar</button>
               @if (tag.publicUrl) {
                 <a app-button variant="outline" size="sm" [routerLink]="['/tags', tag.id, 'write']">Gravar NFC</a>
+                <button app-button variant="outline" size="sm" type="button" (click)="openQrCode(tag)">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" class="mr-1.5 h-4 w-4 shrink-0">
+                    <rect width="5" height="5" x="3" y="3" rx="1"></rect>
+                    <rect width="5" height="5" x="16" y="3" rx="1"></rect>
+                    <rect width="5" height="5" x="3" y="16" rx="1"></rect>
+                    <path d="M21 16h-3a2 2 0 0 0-2 2v3"></path>
+                    <path d="M21 21v.01"></path>
+                    <path d="M12 7v3a2 2 0 0 1-2 2H7"></path>
+                    <path d="M3 12h.01"></path>
+                    <path d="M12 3h.01"></path>
+                    <path d="M12 16v.01"></path>
+                    <path d="M16 12h1"></path>
+                    <path d="M21 12v.01"></path>
+                    <path d="M12 21v-1"></path>
+                  </svg>
+                  Ver QR Code
+                </button>
                 <a app-button variant="outline" size="sm" [href]="tag.publicUrl" target="_blank" rel="noopener noreferrer">Testar</a>
                 <button app-button variant="outline" size="sm" type="button" (click)="copyLink(tag)">Copiar link</button>
               }
@@ -133,3 +151,56 @@
     </div>
   </div>
 }
+
+<dialog #qrDialog (close)="onQrDialogClose()" (click)="closeQrOnBackdrop($event)"
+  aria-labelledby="qr-code-title"
+  class="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border-0 bg-transparent p-0 text-inherit shadow-none backdrop:bg-gray-900/60">
+  @if (qrTag(); as tag) {
+    <section class="rounded-2xl bg-white p-5 shadow-theme-lg sm:p-7 dark:bg-gray-900">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 id="qr-code-title" class="text-lg font-semibold text-gray-800 dark:text-white/90">QR Code da placa</h2>
+          <p class="mt-1 truncate text-sm text-gray-500 dark:text-gray-400"
+            [title]="qrConfiguration()?.name ?? tag.name">{{ qrConfiguration()?.name ?? tag.name }}</p>
+        </div>
+        <button type="button" (click)="closeQrCode()" aria-label="Fechar modal"
+          class="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-white/10">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" class="h-5 w-5"><path d="m18 6-12 12M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="mt-5 flex flex-col items-center">
+        @if (qrLoading()) {
+          <p role="status" class="py-24 text-sm text-gray-500 dark:text-gray-400">Preparando seu QR Code...</p>
+        } @else if (qrConfiguration(); as configuration) {
+          <div class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <img [src]="configuration.qrCodeDataUri" alt="QR Code permanente da placa" class="h-56 w-56 sm:h-64 sm:w-64" />
+          </div>
+          <div class="mt-5 flex items-center gap-2 rounded-full bg-success-50 px-3 py-1.5 text-sm font-medium text-success-700 dark:bg-success-500/10 dark:text-success-400">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11"></path><path d="m9 12 2 2 4-4"></path></svg>
+            Seu QR Code é permanente
+          </div>
+          <p class="mt-3 max-w-sm text-center text-sm leading-6 text-gray-500 dark:text-gray-400">
+            Você pode alterar o conteúdo da placa quando quiser. O QR Code continuará o mesmo e direcionará para o conteúdo atualizado.
+          </p>
+          <a [href]="configuration.publicUrl" target="_blank" rel="noopener noreferrer"
+            class="mt-4 max-w-full break-all text-center text-sm text-brand-500 hover:underline">
+            {{ configuration.publicUrl }}
+          </a>
+          <div class="mt-5 flex w-full flex-wrap justify-center gap-3">
+            <button app-button type="button" (click)="downloadQrCode()">Baixar PNG</button>
+            <button app-button variant="outline" type="button" (click)="copyLink(tag)">Copiar link</button>
+          </div>
+        }
+        @if (qrError()) {
+          <p role="alert" class="mt-4 text-center text-sm text-error-500">{{ qrError() }}</p>
+        }
+        @if (qrFeedback()) {
+          <p role="status" class="mt-4 text-center text-sm text-success-600 dark:text-success-400">{{ qrFeedback() }}</p>
+        }
+      </div>
+    </section>
+  }
+</dialog>

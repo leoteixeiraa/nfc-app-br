@@ -77,6 +77,12 @@ export interface WriteConfiguration {
   continuationQrCodeDataUri: string;
 }
 
+export interface PublicQrConfiguration {
+  name: string;
+  publicUrl: string;
+  qrCodeDataUri: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TagsApiService {
   constructor(
@@ -182,6 +188,10 @@ export class TagsApiService {
 
   writeConfiguration(id: string): Observable<WriteConfiguration> {
     return this.http.get<WriteConfiguration>(`/api/tags/public/${encodeURIComponent(id)}/write`);
+  }
+
+  publicQrConfiguration(id: string): Observable<PublicQrConfiguration> {
+    return this.http.get<PublicQrConfiguration>(`/api/tags/public/${encodeURIComponent(id)}/qr`);
   }
 
   private fetchCsrf(): Observable<string> {

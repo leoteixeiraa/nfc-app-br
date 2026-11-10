@@ -7,6 +7,7 @@ import { LocalTagsService } from '../../../core/tags/local-tags.service';
 import { TagsApiService } from '../../../core/tags/tags-api.service';
 import { TagAccountSyncService } from '../../../core/tags/tag-account-sync.service';
 import { TagsDashboardComponent } from './tags-dashboard.component';
+import { of } from 'rxjs';
 
 describe('Aviso de sincronização das placas', () => {
   it('informa o visitante e remove o aviso quando a sincronização da conta é confirmada', () => {
@@ -75,5 +76,53 @@ describe('Aviso de sincronização das placas', () => {
     fixture.nativeElement.querySelector('button').click();
     expect(fixture.nativeElement.textContent).toContain('Tentar novamente');
     expect(sync.retry).toHaveBeenCalled();
+  });
+});
+
+describe('QR Code permanente da placa', () => {
+  it('exibe o QR Code associado ao link público permanente', () => {
+    const tag = {
+      id: 'abcdefghijklmnopqrstuvwx',
+      name: 'Loja',
+      type: 'url',
+      destinationUrl: 'https://example.com/destino-antigo',
+      publicUrl: 'https://nfc.app.br/t/abcdefghijklmnopqrstuvwx',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    };
+    const qrConfiguration = {
+      name: 'Loja',
+      publicUrl: tag.publicUrl,
+      qrCodeDataUri: 'data:image/svg+xml;base64,cXI=',
+    };
+    const tagsApi = {
+      publicQrConfiguration: jasmine.createSpy().and.returnValue(of(qrConfiguration)),
+    };
+    TestBed.configureTestingModule({
+      imports: [TagsDashboardComponent],
+      providers: [
+        provideRouter([]),
+        { provide: LocalTagsService, useValue: { list: () => [tag] } },
+        { provide: LocalClientsService, useValue: {} },
+        { provide: TagsApiService, useValue: tagsApi },
+        { provide: TagAccountSyncService, useValue: {
+          status: signal('synced'), pendingImportCount: signal(0), error: signal(''), retry: jasmine.createSpy(),
+        } },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(TagsDashboardComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const action = Array.from(element.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Ver QR Code'));
+    expect(action).toBeDefined();
+    action?.click();
+    fixture.detectChanges();
+
+    expect(tagsApi.publicQrConfiguration).toHaveBeenCalledOnceWith(tag.id);
+    expect(element.querySelector('dialog')?.textContent).toContain('Seu QR Code é permanente');
+    expect(element.querySelector('dialog img')?.getAttribute('src')).toBe(qrConfiguration.qrCodeDataUri);
+    expect(element.querySelector('dialog a')?.getAttribute('href')).toBe(tag.publicUrl);
   });
 });

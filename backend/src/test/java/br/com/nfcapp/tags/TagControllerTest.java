@@ -147,6 +147,19 @@ class TagControllerTest {
         verify(tags).writeConfiguration("public-code");
     }
 
+    @Test
+    void publicQrConfigurationReturnsThePermanentUrlWithoutAuthentication() {
+        var configuration = new TagService.PublicQrConfiguration(
+                "Balcão", "https://nfc.app.br/t/public-code", "data:image/svg+xml;base64,qr");
+        when(tags.publicQrConfiguration("public-code")).thenReturn(configuration);
+
+        var result = controller.publicQrConfiguration("public-code", new MockHttpServletRequest());
+
+        assertEquals(configuration, result.getBody());
+        assertTrue(result.getHeaders().getCacheControl().contains("no-store"));
+        verify(tags).publicQrConfiguration("public-code");
+    }
+
     private TagService.TagRequest request(String name, String destination) {
         return new TagService.TagRequest(name, "url", destination, null, null, null, null, null, null);
     }
