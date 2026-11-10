@@ -195,6 +195,9 @@ export class TagFormComponent {
   useGoogleSearch(): void {
     this.manualGoogle.set(false);
     this.selectedPlace.set(null);
+    this.results.set([]);
+    this.searchError.set('');
+    this.form.controls.placeSearch.setValue('');
     this.form.controls.destination.setValue('');
   }
 
@@ -360,12 +363,11 @@ export class TagFormComponent {
       this.managementToken = tag.managementToken ?? '';
       this.accountOwned = Boolean(tag.accountOwned);
       this.legacyTagId = tag.managementToken || tag.accountOwned ? null : tag.id;
-      if (tag.type === 'google-review' && tag.destinationLabel) {
+      if (tag.type === 'google-review') {
         const place = this.localClients.placeForTag(tag);
         this.selectedPlace.set(place
           ? { ...place, photoUrl: null, photoAttributions: [] }
-          : { placeId: '', name: tag.destinationLabel, address: '' });
-        this.manualGoogle.set(true);
+          : { placeId: '', name: tag.destinationLabel ?? tag.name, address: '' });
       }
     } catch (error) {
       this.notFound.set(true);
