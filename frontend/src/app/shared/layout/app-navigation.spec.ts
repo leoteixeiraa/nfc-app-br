@@ -19,7 +19,7 @@ describe('Navegação do MVP', () => {
         provideRouter([]),
         { provide: AuthService, useValue: { getCurrentUser: () => of(null) } },
         { provide: AuthSessionStore, useValue: { currentUser: user } },
-        { provide: CurrentPlanService, useValue: { isPro: signal(false), label: signal(null), isLoading: signal(false) } },
+        { provide: CurrentPlanService, useValue: { isPremium: signal(false), label: signal(null), isLoading: signal(false) } },
       ],
     }).compileComponents();
   });
