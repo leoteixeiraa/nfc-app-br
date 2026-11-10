@@ -118,6 +118,59 @@ describe('Clientes locais', () => {
     expect(JSON.parse(localStorage.getItem(LOCAL_CLIENTS_STORAGE_KEY)!).links.every((link: { pending?: unknown }) => !link.pending)).toBeTrue();
   });
 
+  it('lê clientes antigos sem campos opcionais sem alterar os dados originais', () => {
+    const { rating, userRatingCount, googleMapsUrl, ...legacyPlace } = place;
+    const original = JSON.stringify({
+      clients: [{ ...legacyPlace, createdAt: '2026-01-01T00:00:00Z' }],
+      links: [],
+    });
+    localStorage.setItem(LOCAL_CLIENTS_STORAGE_KEY, original);
+
+    expect(clients.get(place.placeId)).toEqual(jasmine.objectContaining({
+      ...legacyPlace, rating: null, userRatingCount: null, googleMapsUrl: null,
+    }));
+    expect(localStorage.getItem(LOCAL_CLIENTS_STORAGE_KEY)).toBe(original);
+  });
+
+  it('recupera vínculo pendente antigo sem campos opcionais', () => {
+    const tag = { ...tags.create(input), publicUrl: 'https://nfc.app.br/t/first' };
+    tags.saveRemote(tag);
+    const { rating, userRatingCount, googleMapsUrl, ...legacyPlace } = place;
+    localStorage.setItem(LOCAL_CLIENTS_STORAGE_KEY, JSON.stringify({
+      clients: [],
+      links: [{ tagId: tag.id, destinationUrl: tag.destinationUrl, placeId: place.placeId, pending: legacyPlace }],
+    }));
+
+    expect(clients.get(place.placeId)).toEqual(jasmine.objectContaining({
+      rating: null, userRatingCount: null, googleMapsUrl: null,
+      tags: jasmine.arrayContaining([jasmine.objectContaining({ id: tag.id })]),
+    }));
+  });
+
+  it('salva e lê estabelecimento retornado pela API sem campos nulos', () => {
+    const tag = tags.create(input);
+    const { rating, userRatingCount, googleMapsUrl, ...apiPlace } = place;
+    clients.setPlace(tag, { ...apiPlace, photoAttributions: [] });
+
+    expect(clients.get(place.placeId)).toEqual(jasmine.objectContaining({
+      rating: null, userRatingCount: null, googleMapsUrl: null,
+    }));
+    const saved = JSON.parse(localStorage.getItem(LOCAL_CLIENTS_STORAGE_KEY)!);
+    expect(saved.clients[0]).toEqual(jasmine.objectContaining({
+      rating: null, userRatingCount: null, googleMapsUrl: null,
+    }));
+  });
+
+  it('preserva registros com campos opcionais de tipo inválido', () => {
+    const original = JSON.stringify({
+      clients: [{ ...place, rating: 'inválido', createdAt: '2026-01-01T00:00:00Z' }],
+      links: [],
+    });
+    localStorage.setItem(LOCAL_CLIENTS_STORAGE_KEY, original);
+    expect(() => clients.list()).toThrowError(/inválidos/);
+    expect(localStorage.getItem(LOCAL_CLIENTS_STORAGE_KEY)).toBe(original);
+  });
+
   it('preserva dados corrompidos e informa falhas de armazenamento', () => {
     localStorage.setItem(LOCAL_CLIENTS_STORAGE_KEY, '{inválido');
     expect(() => clients.list()).toThrowError(/inválidos/);
