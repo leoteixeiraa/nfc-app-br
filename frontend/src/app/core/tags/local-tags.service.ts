@@ -47,29 +47,6 @@ export class LocalTagsService {
     return updated;
   }
 
-  duplicate(id: string): NfcTag {
-    const tags = this.readAll();
-    const source = tags.find((tag) => tag.id === id);
-    if (!source) {
-      throw new LocalTagsError('not-found', 'Placa não encontrada.');
-    }
-
-    const now = new Date().toISOString();
-    const copy: NfcTag = {
-      ...source,
-      id: crypto.randomUUID(),
-      name: source.name,
-      publicUrl: undefined,
-      managementToken: undefined,
-      qrCodeDataUri: undefined,
-      active: undefined,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.writeAll([...tags, copy]);
-    return copy;
-  }
-
   saveRemote(tag: NfcTag): void {
     if (!this.isValidTag(tag)) {
       throw new LocalTagsError('invalid', 'Os dados recebidos para a placa são inválidos.');

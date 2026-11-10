@@ -4,6 +4,7 @@ import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { catchError, EMPTY, filter, fromEvent, merge, of, Subject, switchMap } from 'rxjs';
 import { AuthSessionStore } from '../auth/auth-session.store';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 interface CurrentPlan {
   code: string;
@@ -29,6 +30,7 @@ export class CurrentPlanService {
   private readonly session = inject(AuthSessionStore);
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
+  private readonly analytics = inject(AnalyticsService);
   private readonly refreshRequests = new Subject<void>();
   private readonly plan = signal<{ userId: string; value: CurrentPlan } | null>(null);
   private readonly now = signal(Date.now());
@@ -52,6 +54,23 @@ export class CurrentPlanService {
 
   refresh(): void {
     this.refreshRequests.next();
+  }
+
+  // O evento só dispara quando o servidor passa a confirmar um plano premium ativo
+  // que antes não estava ativo; o último estado confirmado fica salvo por usuário.
+  private trackSubscriptionStart(userId: string, plan: CurrentPlan): void {
+    const expiresAt = plan.expiresAt == null ? null : Date.parse(plan.expiresAt);
+    const active = plan.status === 'ACTIVE' && plan.premium && (expiresAt === null || expiresAt > Date.now());
+    const storageKey = `nfc.plan.premium.${userId}`;
+    try {
+      const previous = localStorage.getItem(storageKey);
+      localStorage.setItem(storageKey, active ? 'true' : 'false');
+      if (active && previous === 'false') {
+        this.analytics.track('subscription_started', { plan_code: plan.code }, { dedupeKey: `${userId}:${plan.code}` });
+      }
+    } catch {
+      // Sem armazenamento, não há como distinguir nova assinatura de plano já existente.
+    }
   }
 
   constructor() {
@@ -101,6 +120,7 @@ export class CurrentPlanService {
             return;
           }
           this.plan.set({ userId, value });
+          this.trackSubscriptionStart(userId, value);
           if (value.expiresAt != null) {
             const expiration = Date.parse(value.expiresAt);
             const scheduleExpiration = () => {

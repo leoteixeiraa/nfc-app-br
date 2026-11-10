@@ -76,15 +76,6 @@ describe('LocalTagsService', () => {
     expect(service.list()[0].name).toBe('Editada');
   });
 
-  it('duplica e remove', () => {
-    const tag = service.create(input);
-    const copy = service.duplicate(tag.id);
-    expect(copy.id).not.toBe(tag.id);
-    expect(copy.name).toBe('Balcão');
-    service.remove(tag.id);
-    expect(service.list().map((t) => t.id)).toEqual([copy.id]);
-  });
-
   it('rejeita dados inválidos', () => {
     expect(() => service.create({ ...input, destinationUrl: 'http://inseguro.com' })).toThrowError(LocalTagsError);
     expect(() => service.create({ ...input, name: '  ' })).toThrowError(LocalTagsError);

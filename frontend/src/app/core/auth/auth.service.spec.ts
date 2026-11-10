@@ -52,7 +52,7 @@ describe('persistência da sessão', () => {
   }
 
   it('mantém o Firebase autenticado após login bem-sucedido', async () => {
-    firebase.signIn.and.resolveTo('firebase-token');
+    firebase.signIn.and.resolveTo({ idToken: 'firebase-token', isNewUser: false });
     const result = firstValueFrom(service.signInWithGoogle());
     await Promise.resolve();
     csrf('token');
@@ -75,7 +75,7 @@ describe('persistência da sessão', () => {
     const write = spyOn(Storage.prototype, 'setItem').and.callThrough();
     const remove = spyOn(Storage.prototype, 'removeItem').and.callThrough();
     const clear = spyOn(Storage.prototype, 'clear').and.callThrough();
-    firebase.signIn.and.resolveTo('firebase-token');
+    firebase.signIn.and.resolveTo({ idToken: 'firebase-token', isNewUser: false });
     const login = firstValueFrom(service.signInWithGoogle());
     await Promise.resolve();
     csrf('token');
@@ -91,7 +91,7 @@ describe('persistência da sessão', () => {
   });
 
   it('cancela o login Firebase se o servidor rejeitar a sessão', async () => {
-    firebase.signIn.and.resolveTo('firebase-token');
+    firebase.signIn.and.resolveTo({ idToken: 'firebase-token', isNewUser: false });
     const result = firstValueFrom(service.signInWithGoogle());
     await Promise.resolve();
     csrf('token');

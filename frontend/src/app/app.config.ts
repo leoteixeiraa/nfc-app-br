@@ -5,12 +5,14 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { LiveDirectionality } from './shared/services/live-directionality.service';
+import { provideAnalytics } from './core/analytics/provide-analytics';
 import { authSessionInterceptor } from './core/auth/auth-session.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
+    provideAnalytics(),
     provideHttpClient(withInterceptors([authSessionInterceptor])),
     { provide: Directionality, useClass: LiveDirectionality },
   ],

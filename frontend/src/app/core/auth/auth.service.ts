@@ -14,6 +14,7 @@ import {
   throwError,
 } from 'rxjs';
 import { AuthSessionStore } from './auth-session.store';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { LocalClientsService } from '../clients/local-clients.service';
 import { LocalTagsService } from '../tags/local-tags.service';
 import { TagAccountSyncService } from '../tags/tag-account-sync.service';
@@ -32,6 +33,7 @@ export class AuthService {
   private readonly tagSync = inject(TagAccountSyncService);
   private readonly localTags = inject(LocalTagsService);
   private readonly localClients = inject(LocalClientsService);
+  private readonly analytics = inject(AnalyticsService);
 
   constructor(
     private readonly http: HttpClient,
@@ -73,9 +75,10 @@ export class AuthService {
 
   signInWithGoogle(): Observable<AuthUser> {
     return from(this.firebase.signIn()).pipe(
-      switchMap((idToken) =>
+      switchMap(({ idToken, isNewUser }) =>
         this.fetchCsrfToken().pipe(
           switchMap(() => this.http.post<AuthUser>('/api/auth/session', { idToken })),
+          tap(() => this.analytics.track(isNewUser ? 'sign_up' : 'login', { method: 'google' })),
           catchError((error: unknown) =>
             from(this.firebase.signOut()).pipe(
               catchError((signOutError: unknown) =>

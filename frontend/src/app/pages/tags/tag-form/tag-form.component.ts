@@ -4,6 +4,7 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Va
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthSessionStore } from '../../../core/auth/auth-session.store';
+import { AnalyticsService } from '../../../core/analytics/analytics.service';
 import { catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
 import { LocalClientsService } from '../../../core/clients/local-clients.service';
@@ -38,6 +39,7 @@ export class TagFormComponent {
   private readonly localClients = inject(LocalClientsService);
   private readonly tagsApi = inject(TagsApiService);
   private readonly tagSync = inject(TagAccountSyncService);
+  private readonly analytics = inject(AnalyticsService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -278,6 +280,11 @@ export class TagFormComponent {
       : this.tagsApi.create(input, this.managementToken, this.idempotencyKey);
     request.subscribe({
       next: (tag) => {
+        if (isRemoteEdit) {
+          this.analytics.track('nfc_tag_updated', { tag_type: tag.type }, { dedupeKey: `${tag.id}:${tag.updatedAt}` });
+        } else {
+          this.analytics.track('nfc_tag_created', { tag_type: tag.type }, { dedupeKey: this.idempotencyKey });
+        }
         try {
           const place = this.selectedPlace();
           this.localClients.setPlace(tag, place && 'reviewUrl' in place ? place : null);

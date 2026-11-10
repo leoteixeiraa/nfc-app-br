@@ -1,11 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { AnalyticsConsentBannerComponent } from './core/analytics/analytics-consent-banner.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     RouterModule,
+    AnalyticsConsentBannerComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',

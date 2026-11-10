@@ -4,8 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthSessionStore } from '../../../core/auth/auth-session.store';
 import { LocalTagsError, LocalTagsService } from '../../../core/tags/local-tags.service';
 import { TagAccountSyncService } from '../../../core/tags/tag-account-sync.service';
-import { ClientPlace, LocalClientsService } from '../../../core/clients/local-clients.service';
-import { formatBrl, NfcTag, NfcTagInput, tagTypeLabel } from '../../../core/tags/nfc-tag';
+import { LocalClientsService } from '../../../core/clients/local-clients.service';
+import { formatBrl, NfcTag, tagTypeLabel } from '../../../core/tags/nfc-tag';
 import { PublicQrConfiguration, TagsApiService } from '../../../core/tags/tags-api.service';
 import { ButtonComponent } from '../../../shared/components/ui/button/button.component';
 
@@ -42,41 +42,6 @@ export class TagsDashboardComponent {
       this.notice.set(state['notice']);
     }
     this.reload();
-  }
-
-  duplicate(tag: NfcTag): void {
-    this.actionError.set('');
-    this.notice.set('');
-    let place: ClientPlace | undefined;
-    try {
-      place = this.localClients.placeForTag(tag);
-    } catch (error) {
-      this.actionError.set(this.messageFrom(error));
-      return;
-    }
-    const type = tag.type === 'pix' && !tag.pixKey ? 'url' : tag.type;
-    const input: NfcTagInput = {
-      name: tag.name,
-      type,
-      destinationUrl: type === 'pix' ? '' : tag.destinationUrl,
-      destinationLabel: tag.destinationLabel,
-      pixKey: tag.pixKey,
-      pixReceiverName: tag.pixReceiverName,
-      pixCity: tag.pixCity,
-    };
-    const token = this.randomToken();
-    this.tagsApi.create(input, token, crypto.randomUUID()).subscribe({
-      next: (copy) => {
-        this.notice.set('Placa duplicada com um novo link público.');
-        try {
-          this.localClients.setPlace(copy, place ?? null);
-        } catch (error) {
-          this.actionError.set(`Placa duplicada, mas o vínculo do estabelecimento não foi salvo: ${this.messageFrom(error)}`);
-        }
-        this.reload();
-      },
-      error: (error: unknown) => this.actionError.set(this.messageFrom(error)),
-    });
   }
 
   askRemoval(tag: NfcTag): void {
@@ -271,10 +236,5 @@ export class TagsDashboardComponent {
       }
     }
     return error instanceof Error ? error.message : 'Ocorreu um erro inesperado. Tente novamente.';
-  }
-
-  private randomToken(): string {
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 }
