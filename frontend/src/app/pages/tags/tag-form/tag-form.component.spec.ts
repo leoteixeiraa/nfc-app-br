@@ -177,6 +177,18 @@ describe('edição de placa Google Avaliações', () => {
         expect(clients.placeForTag(saved)?.placeId).toBe(oldPlace.placeId);
   });
 
+  it('conclui a edição sem solicitar uma nova gravação NFC', () => {
+        const fixture = TestBed.createComponent(TagFormComponent);
+        fixture.componentInstance.continueToReview();
+        fixture.componentInstance.publish();
+        fixture.detectChanges();
+
+        const element = fixture.nativeElement as HTMLElement;
+        expect(element.textContent).toContain('não é necessário gravar o NFC novamente');
+        expect(element.querySelector('app-tag-write')).toBeNull();
+        expect(element.querySelector('a[href="/tags"]')?.textContent).toContain('Concluir');
+  });
+
   it('permite pesquisar ou inserir manualmente quando não há dados locais do estabelecimento', () => {
         clients.forgetTag(original.id);
         const fixture = TestBed.createComponent(TagFormComponent);

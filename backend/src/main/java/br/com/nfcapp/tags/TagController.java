@@ -52,10 +52,7 @@ public class TagController {
             @AuthenticationPrincipal CurrentUser user,
             HttpServletRequest servletRequest) {
         limit(servletRequest, "create", 20, Duration.ofHours(1));
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-        return tags.create(user.id(), request, idempotencyKey);
+        return tags.create(user == null ? null : user.id(), request, idempotencyKey);
     }
 
     @PutMapping("/api/tags/{code}")

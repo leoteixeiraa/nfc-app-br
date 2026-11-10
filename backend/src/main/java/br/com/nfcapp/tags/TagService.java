@@ -10,6 +10,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -51,8 +52,10 @@ public class TagService {
         validateRequest(request, true);
         String normalizedKey = requireIdempotencyKey(idempotencyKey);
         String tokenHash = hashToken(request.managementToken());
-        UUID organizationId = plans.currentOrganization(userId);
-        plans.lockOrganization(organizationId);
+        UUID organizationId = userId == null ? ANONYMOUS_ORGANIZATION_ID : plans.currentOrganization(userId);
+        if (userId != null) {
+            plans.lockOrganization(organizationId);
+        }
         var existing = jdbc.query(
                 "SELECT public_code, management_token_hash, owner_user_id FROM nfc_tags WHERE idempotency_key = ?",
                 (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash"),
@@ -60,7 +63,7 @@ public class TagService {
                 normalizedKey);
         if (!existing.isEmpty()) {
             ExistingTag previous = existing.getFirst();
-            if (!userId.equals(previous.ownerId()) || previous.tokenHash() == null
+            if (!Objects.equals(userId, previous.ownerId()) || previous.tokenHash() == null
                     || !MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
                     tokenHash.getBytes(StandardCharsets.US_ASCII))) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Chave de criação já utilizada.");
@@ -68,7 +71,9 @@ public class TagService {
             return get(previous.code());
         }
 
-        plans.validatePublication(organizationId);
+        if (userId != null) {
+            plans.validatePublication(organizationId);
+        }
         String code = newPublicCode();
         String destination = destinationFor(request);
         int inserted = jdbc.update("""
@@ -87,7 +92,7 @@ public class TagService {
                     (rs, row) -> new ExistingTag(rs.getString("public_code"), rs.getString("management_token_hash"),
                             rs.getObject("owner_user_id", UUID.class)),
                     normalizedKey);
-            if (previous == null || !userId.equals(previous.ownerId()) || previous.tokenHash() == null
+            if (previous == null || !Objects.equals(userId, previous.ownerId()) || previous.tokenHash() == null
                     || !MessageDigest.isEqual(previous.tokenHash().getBytes(StandardCharsets.US_ASCII),
                     tokenHash.getBytes(StandardCharsets.US_ASCII))) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Chave de criação já utilizada.");
