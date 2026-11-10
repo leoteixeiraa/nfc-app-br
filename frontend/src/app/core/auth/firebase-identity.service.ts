@@ -3,6 +3,7 @@ import { FirebaseOptions, initializeApp } from 'firebase/app';
 import {
   Auth,
   browserLocalPersistence,
+  getAdditionalUserInfo,
   getAuth,
   GoogleAuthProvider,
   setPersistence,
@@ -18,10 +19,13 @@ export class FirebaseIdentityService {
     return this.getAuth().then(() => undefined);
   }
 
-  async signIn(): Promise<string> {
+  async signIn(): Promise<{ idToken: string; isNewUser: boolean }> {
     const auth = await this.getAuth();
     const credential = await signInWithPopup(auth, new GoogleAuthProvider());
-    return credential.user.getIdToken();
+    return {
+      idToken: await credential.user.getIdToken(),
+      isNewUser: getAdditionalUserInfo(credential)?.isNewUser === true,
+    };
   }
 
   async currentToken(): Promise<string | null> {
