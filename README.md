@@ -102,11 +102,20 @@ mvn verify
 Também é possível validar a configuração Compose e executar os testes com Docker:
 
 ```sh
-docker compose --env-file .env.example config --quiet
+FIREBASE_PROJECT_ID=ci-placeholder docker compose --env-file .env.example config --quiet
 docker compose up -d --build
 ```
 
-O workflow do GitHub Actions executa build e testes frontend/backend e valida a configuração do Compose. Não há deploy automático.
+O workflow de CI do GitHub Actions executa build e testes frontend/backend e valida a configuração do Compose. Um workflow independente constrói e publica as imagens no GHCR para commits em `master`, inclusive por execução manual nessa branch. **Confira o resultado do CI antes de publicar na VPS**: uma falha no CI não bloqueia a construção das imagens nem o deploy manual. Não há deploy automático.
+
+As imagens usam o SHA completo do commit como tag:
+
+- `ghcr.io/leoteixeiraa/nfc-app-br-backend:<SHA>`
+- `ghcr.io/leoteixeiraa/nfc-app-br-frontend:<SHA>`
+
+Após o primeiro build, configure os dois pacotes como públicos nas configurações de pacotes do GitHub para que a VPS possa baixá-los sem credenciais. O deploy é executado manualmente na VPS, usando sua configuração própria e os segredos do `.env` local; não inclua segredos nas imagens ou no repositório.
+
+A imagem publicada do frontend usa o estágio `runtime`, sem o módulo DNS da Cloudflare. Ela não substitui diretamente o estágio `wildcard-runtime` usado pelo Compose de produção deste repositório para certificados wildcard; a configuração própria da VPS deve ser compatível com a imagem publicada.
 
 ## Backup e restauração
 
