@@ -1,9 +1,8 @@
 import { DOCUMENT } from '@angular/common';
-import { effect, inject, Injectable, Injector, untracked } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AnalyticsConsentService } from './analytics-consent.service';
 import { AnalyticsEventMap, AnalyticsEventName, TrackOptions } from './analytics-events';
 
 type GtagWindow = Window & {
@@ -15,7 +14,6 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 /**
  * Ponto único de integração com o GA4 (gtag.js).
- * - Só carrega o script e envia dados com consentimento de analytics (LGPD).
  * - Desabilitado em localhost ou sem Measurement ID no ambiente.
  * - Pageviews automáticos por navegação, sem duplicidade; sem query string/fragmento.
  */
@@ -23,8 +21,6 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 export class AnalyticsService {
   private readonly document = inject(DOCUMENT);
   private readonly router = inject(Router);
-  private readonly injector = inject(Injector);
-  private readonly consent = inject(AnalyticsConsentService);
   private readonly measurementId = environment.analytics.measurementId;
   private readonly sentKeys = new Set<string>();
   private started = false;
@@ -43,6 +39,7 @@ export class AnalyticsService {
       return;
     }
     this.started = true;
+    this.load();
 
     this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -50,11 +47,6 @@ export class AnalyticsService {
         this.currentPath = this.pathOf(event.urlAfterRedirects);
         this.trackPageView();
       });
-
-    effect(() => {
-      const status = this.consent.status();
-      untracked(() => this.onConsentChange(status));
-    }, { injector: this.injector });
   }
 
   /** Registra um evento tipado. Deve ser chamado somente após confirmação de sucesso. */
@@ -85,16 +77,6 @@ export class AnalyticsService {
     });
   }
 
-  private onConsentChange(status: string): void {
-    if (status === 'granted') {
-      this.load();
-      this.gtag('consent', 'update', { analytics_storage: 'granted' });
-      this.trackPageView();
-    } else if (this.loaded) {
-      this.gtag('consent', 'update', { analytics_storage: 'denied' });
-    }
-  }
-
   private load(): void {
     if (this.loaded) {
       return;
@@ -107,12 +89,6 @@ export class AnalyticsService {
       // eslint-disable-next-line prefer-rest-params
       win.dataLayer!.push(arguments);
     };
-    this.gtag('consent', 'default', {
-      analytics_storage: 'denied',
-      ad_storage: 'denied',
-      ad_user_data: 'denied',
-      ad_personalization: 'denied',
-    });
     this.gtag('js', new Date());
     this.gtag('config', this.measurementId, {
       send_page_view: false,
@@ -131,7 +107,7 @@ export class AnalyticsService {
   }
 
   private canSend(): boolean {
-    return this.started && this.loaded && this.consent.status() === 'granted';
+    return this.started && this.loaded;
   }
 
   private isEnabled(): boolean {
