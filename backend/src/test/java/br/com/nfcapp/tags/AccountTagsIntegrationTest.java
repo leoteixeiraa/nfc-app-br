@@ -2,8 +2,11 @@ package br.com.nfcapp.tags;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -20,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -32,6 +36,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import br.com.nfcapp.auth.CurrentUser;
 import br.com.nfcapp.plans.PlanService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,6 +52,89 @@ class AccountTagsIntegrationTest {
     private MockMvc mvc;
     @Autowired
     private PlanService plans;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    void anonymousPublicationCanBeRetriedManagedAndClaimed() throws Exception {
+        String token = "a".repeat(64);
+        String key = UUID.randomUUID().toString();
+        String destination = "https://www.google.com/maps/place/example";
+        var request = new TagService.TagRequest("Loja", "google-review", destination,
+                null, null, null, "Loja", token, new BigDecimal("100"));
+        String body = objectMapper.writeValueAsString(request);
+        var csrfResult = mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
+        String csrf = objectMapper.readTree(csrfResult.getResponse().getContentAsString()).get("token").asText();
+        var session = (MockHttpSession) csrfResult.getRequest().getSession(false);
+
+        var result = mvc.perform(post("/api/tags").session(session)
+                .header("X-CSRF-TOKEN", csrf).header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.type").value("google-review"))
+                .andExpect(jsonPath("$.salePrice").value(100))
+                .andReturn();
+        String code = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText();
+        assertNull(jdbc.queryForObject("SELECT owner_user_id FROM nfc_tags WHERE public_code = ?", UUID.class, code));
+        mvc.perform(post("/api/tags").session(session)
+                .header("X-CSRF-TOKEN", csrf).header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(code));
+
+        String wrongBody = objectMapper.writeValueAsString(new TagService.TagRequest("Loja", "google-review",
+                destination, null, null, null, "Loja", "b".repeat(64), new BigDecimal("100")));
+        mvc.perform(post("/api/tags").session(session)
+                .header("X-CSRF-TOKEN", csrf).header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content(wrongBody))
+                .andExpect(status().isConflict());
+        mvc.perform(put("/api/tags/" + code).session(session)
+                .header("X-CSRF-TOKEN", csrf).header("X-Tag-Management-Token", "b".repeat(64))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+        mvc.perform(put("/api/tags/" + code).session(session)
+                .header("X-CSRF-TOKEN", csrf).header("X-Tag-Management-Token", token)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(code));
+        mvc.perform(get("/t/" + code)).andExpect(status().isFound())
+                .andExpect(header().string("Location", destination));
+
+        UUID user = UUID.randomUUID();
+        jdbc.update("INSERT INTO users (id, email) VALUES (?, ?)", user, user + "@example.test");
+        plans.createPersonalOrganization(user);
+        tags.claimPublishedTags(user, List.of(new TagService.TagClaim(code, token)));
+        assertEquals(1, plans.currentPlan(user).publishedTags());
+        assertEquals(code, tags.listForAccount(user).getFirst().id());
+        mvc.perform(post("/api/tags").session(session)
+                .header("X-CSRF-TOKEN", csrf).header("Idempotency-Key", key)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+        mvc.perform(put("/api/tags/" + code).session(session)
+                .header("X-CSRF-TOKEN", csrf).header("X-Tag-Management-Token", token)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anonymousPublicationsDoNotShareTheFreePlanLimitButClaimsCountForTheAccount() {
+        UUID user = UUID.randomUUID();
+        jdbc.update("INSERT INTO users (id, email) VALUES (?, ?)", user, user + "@example.test");
+        plans.createPersonalOrganization(user);
+        String token = "c".repeat(64);
+        var claims = new ArrayList<TagService.TagClaim>();
+        for (int i = 0; i < 4; i++) {
+            var tag = tags.create(null, request("Placa " + i, "https://example.com", token),
+                    UUID.randomUUID().toString());
+            claims.add(new TagService.TagClaim(tag.id(), token));
+        }
+
+        assertEquals(0, plans.currentPlan(user).publishedTags());
+        assertEquals(4, tags.claimPublishedTags(user, claims).size());
+        assertEquals(4, plans.currentPlan(user).publishedTags());
+        assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
+                () -> tags.create(user, request("Nova", "https://example.com", token),
+                        UUID.randomUUID().toString())).getStatusCode());
+    }
 
     @Test
     void claimsThreePublishedTagsIdempotentlyAndIsolatesAccounts() {

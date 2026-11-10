@@ -121,13 +121,10 @@ class PlansIntegrationTest {
     }
 
     @Test
-    void anonymousPublicationIsRejectedEvenWithCsrfToken() throws Exception {
-        var csrf = mvc.perform(get("/api/auth/csrf")).andExpect(status().isOk()).andReturn();
-        String token = objectMapper.readTree(csrf.getResponse().getContentAsString()).get("token").asText();
-        mvc.perform(post("/api/tags").session((MockHttpSession) csrf.getRequest().getSession(false))
-                .header("X-CSRF-TOKEN", token).header("Idempotency-Key", UUID.randomUUID().toString())
+    void anonymousPublicationRequiresCsrfToken() throws Exception {
+        mvc.perform(post("/api/tags").header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 
     @Test

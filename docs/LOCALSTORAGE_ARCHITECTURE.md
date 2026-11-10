@@ -2,10 +2,11 @@
 
 ## Situação atual
 
-O dashboard e os rascunhos locais continuam disponíveis sem login. Novas publicações
-exigem login e ficam vinculadas à organização da conta. A interface ainda não foi
-adaptada para orientar essa exigência. A criação guarda no navegador os dados necessários ao gerenciamento
-da placa. Após o login, placas antigas que ainda não pertencem a uma conta são
+O dashboard, os rascunhos locais e a publicação de placas estão disponíveis sem login.
+Publicações anônimas não estão vinculadas a um plano e seguem o limite de requisições
+por endereço de origem. Publicações feitas com login ficam vinculadas à organização da
+conta e seguem os limites do plano. A criação guarda no navegador os dados necessários ao gerenciamento
+da placa. Após o login, placas que ainda não pertencem a uma conta são
 associadas automaticamente usando a credencial de gerenciamento local; placas da
 conta são importadas para o navegador e atualizadas quando necessário.
 
@@ -40,6 +41,7 @@ navegador e tiverem sua credencial de gerenciamento local.
 As placas já vinculadas a usuários são associadas à organização corrente pela
 migration V8. A associação preserva placas antigas mesmo acima do limite do plano;
 novas publicações e reativações são bloqueadas enquanto não houver vaga.
+Uma placa anônima desativada deve ser associada a uma conta antes da reativação.
 
 Clientes e vínculos continuam armazenados apenas neste navegador e não são
 sincronizados com a conta. Placas locais sem credencial de gerenciamento não podem

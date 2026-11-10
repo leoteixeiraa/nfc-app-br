@@ -28,7 +28,7 @@ public class SecurityConfig {
                                 "/api/places/search", "/api/places/*/details", "/api/places/*/review-link",
                                 "/api/tags/public/**", "/api/plans").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/session").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/tags").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/tags").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pix/payload").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/tags/**").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/tags/**").permitAll()

@@ -45,6 +45,16 @@ class TagControllerTest {
     }
 
     @Test
+    void publishesWithoutAnAuthenticatedUser() {
+        TagService.TagRequest request = request("Balcão", "https://example.com");
+        TagService.TagResponse response = response("public-code-a");
+        when(tags.create(null, request, "idempotency-key")).thenReturn(response);
+
+        assertEquals(response, controller.create(request, "idempotency-key", null, new MockHttpServletRequest()));
+        verify(tags).create(null, request, "idempotency-key");
+    }
+
+    @Test
     void duplicationUsesANewIdempotencyKeyAndPublicId() {
         TagService.TagRequest original = request("Mesa 01", "https://example.com");
         TagService.TagRequest duplicate = request("Mesa 01 (cópia)", "https://example.com");
