@@ -37,4 +37,20 @@ class TagWriteConfigurationTest {
         assertThrows(ResponseStatusException.class, () -> service.writeConfiguration(CODE));
         assertThrows(ResponseStatusException.class, () -> service.writeConfiguration("../invalid"));
     }
+
+    @Test
+    void publicQrConfigurationUsesThePermanentPublicUrl() {
+        TagService service = spy(new TagService(mock(JdbcTemplate.class), mock(PixPayloadService.class),
+                mock(QrCodeService.class), mock(br.com.nfcapp.plans.PlanService.class), "https://nfc.app.br"));
+        var tag = new TagService.TagResponse(
+                CODE, "Balcão", "url", "https://example.com", "https://nfc.app.br/t/" + CODE,
+                "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z", true, "permanent-qr",
+                null, null, null, null, null);
+        doReturn(tag).when(service).get(CODE);
+
+        assertEquals(new TagService.PublicQrConfiguration(
+                "Balcão", "https://nfc.app.br/t/" + CODE, "permanent-qr"),
+                service.publicQrConfiguration(CODE));
+        assertThrows(ResponseStatusException.class, () -> service.publicQrConfiguration("../invalid"));
+    }
 }

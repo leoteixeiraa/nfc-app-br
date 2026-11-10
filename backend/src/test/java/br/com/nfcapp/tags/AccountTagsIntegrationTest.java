@@ -1,10 +1,13 @@
 package br.com.nfcapp.tags;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -89,6 +92,41 @@ class AccountTagsIntegrationTest {
     }
 
     @Test
+    void updatingDestinationKeepsPublicIdentityAndDuplicateGetsANewIdentity() throws Exception {
+        UUID user = UUID.randomUUID();
+        jdbc.update("INSERT INTO users (id, email) VALUES (?, ?)", user, user + "@example.test");
+        plans.createPersonalOrganization(user);
+        String originalToken = "d".repeat(64);
+        var original = tags.create(user,
+                request("Cafeteria", "https://example.com/maps", originalToken),
+                UUID.randomUUID().toString());
+        String permanentUrl = original.publicUrl();
+        String originalQr = original.qrCodeDataUri();
+
+        var updated = tags.update(user, original.id(),
+                request("Cafeteria atualizada", "https://wa.me/5511999999999", originalToken),
+                originalToken);
+
+        assertEquals(original.id(), updated.id());
+        assertEquals(permanentUrl, updated.publicUrl());
+        assertEquals(originalQr, updated.qrCodeDataUri());
+        assertEquals("https://wa.me/5511999999999", tags.findPublicDestination(original.id()).target());
+        mvc.perform(get("/api/tags/public/" + original.id() + "/qr"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.publicUrl").value(permanentUrl));
+        mvc.perform(get("/t/" + original.id()))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://wa.me/5511999999999"));
+
+        String duplicateToken = "e".repeat(64);
+        var duplicate = tags.create(user,
+                request("Cafeteria (copia)", "https://wa.me/5511999999999", duplicateToken),
+                UUID.randomUUID().toString());
+        assertNotEquals(original.id(), duplicate.id());
+        assertNotEquals(original.publicUrl(), duplicate.publicUrl());
+    }
+
+    @Test
     void accountEndpointRequiresAuthenticationAndReturnsOnlyOwnTags() throws Exception {
         UUID user = UUID.randomUUID();
         UUID other = UUID.randomUUID();
@@ -124,6 +162,10 @@ class AccountTagsIntegrationTest {
                 """, UUID.class, code, name, hash);
         jdbc.update("INSERT INTO redirect_links (nfc_tag_id, target_url) VALUES (?, ?)", tagId, destination);
         return code;
+    }
+
+    private TagService.TagRequest request(String name, String destination, String token) {
+        return new TagService.TagRequest(name, "url", destination, null, null, null, null, token, null);
     }
 
     private MockHttpSession session(UUID userId) {

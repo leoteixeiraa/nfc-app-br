@@ -185,7 +185,7 @@ public class TagService {
                     rs.getTimestamp("created_at").toInstant().toString(),
                     rs.getTimestamp("updated_at").toInstant().toString(),
                     rs.getBoolean("is_active"),
-                    qrCodeService.toDataUri(url),
+                    qrCodeService.toPermanentLinkDataUri(url),
                     rs.getString("destination_label"),
                     rs.getString("pix_key"),
                     rs.getString("pix_receiver_name"),
@@ -243,6 +243,14 @@ public class TagService {
                 WHERE owner_user_id = ? AND organization_id = ? ORDER BY created_at DESC
                 """, (rs, row) -> rs.getString("public_code"), userId, plans.currentOrganization(userId))
                 .stream().map(this::get).toList();
+    }
+
+    public PublicQrConfiguration publicQrConfiguration(String code) {
+        if (code == null || !code.matches("[A-Za-z0-9_-]{24}")) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Esta placa não existe ou foi desativada.");
+        }
+        TagResponse tag = get(code);
+        return new PublicQrConfiguration(tag.name(), tag.publicUrl(), tag.qrCodeDataUri());
     }
 
     public PublicDestination findPublicDestination(String code) {
@@ -454,6 +462,9 @@ public class TagService {
     }
 
     public record PublicDestination(String type, String name, String target) {
+    }
+
+    public record PublicQrConfiguration(String name, String publicUrl, String qrCodeDataUri) {
     }
 
     public record WriteConfiguration(String name, String publicUrl, String continuationQrCodeDataUri) {

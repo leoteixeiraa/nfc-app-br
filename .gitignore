@@ -1,6 +1,7 @@
 # Environment secrets
 senha-banco.txt
 credenciais-gemini.txt
+credencial-google-maps.txt
 .env
 .env.*
 !.env.example

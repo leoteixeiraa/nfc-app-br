@@ -128,6 +128,15 @@ public class TagController {
                 .body(tags.writeConfiguration(code));
     }
 
+    @GetMapping("/api/tags/public/{code}/qr")
+    public ResponseEntity<TagService.PublicQrConfiguration> publicQrConfiguration(
+            @PathVariable String code, HttpServletRequest request) {
+        limit(request, "resolve", 300, Duration.ofMinutes(1));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(tags.publicQrConfiguration(code));
+    }
+
     @GetMapping("/t/{code}")
     public ResponseEntity<String> redirect(@PathVariable String code, HttpServletRequest request) {
         limit(request, "resolve", 300, Duration.ofMinutes(1));
