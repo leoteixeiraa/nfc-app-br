@@ -47,11 +47,8 @@ export interface PlaceResult {
 }
 
 export interface PlaceDetails extends PlaceResult {
-  rating: number | null;
-  userRatingCount: number | null;
-  photoUrl: string | null;
+  photoUrl?: string | null;
   photoAttributions: Array<{ displayName: string; uri: string | null }>;
-  googleMapsUrl: string | null;
   reviewUrl: string;
   reviews?: PlaceReview[] | null;
 }

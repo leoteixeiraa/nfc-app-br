@@ -24,6 +24,10 @@ usar outro perfil do navegador ou perder o dispositivo pode impedir o acesso
 às placas que ainda não foram associadas à conta. Não há backup automático de
 clientes nem acesso entre dispositivos para esses dados.
 
+Registros de clientes antigos que não contenham avaliação, quantidade de avaliações
+ou URL do Google Maps são lidos com esses campos normalizados para `null`. A leitura
+não altera o armazenamento por si só; outros dados inválidos continuam preservados.
+
 ## Associação de placas à conta
 
 Os endpoints autenticados de associação e consulta ficam habilitados por padrão.

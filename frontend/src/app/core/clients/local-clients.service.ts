@@ -35,6 +35,15 @@ interface ClientStore {
   links: TagLink[];
 }
 
+type StoredPlace = Omit<ClientPlace, 'rating' | 'userRatingCount' | 'googleMapsUrl'> &
+  Partial<Pick<ClientPlace, 'rating' | 'userRatingCount' | 'googleMapsUrl'>>;
+type StoredClient = StoredPlace & Pick<ClientRecord, 'createdAt' | 'local'>;
+type StoredLink = Omit<TagLink, 'pending'> & { pending?: StoredPlace };
+interface StoredClientStore {
+  clients: StoredClient[];
+  links: StoredLink[];
+}
+
 export interface ScanStatistics {
   total: number;
   last7Days: number;
@@ -124,7 +133,10 @@ export class LocalClientsService {
     const old = store.links.find((link) => link.tagId === tag.id);
     store.links = store.links.filter((link) => link.tagId !== tag.id);
     if (place && place.placeId && tag.type === 'google-review' && tag.destinationUrl === place.reviewUrl) {
-      const { placeId, name, address, reviewUrl, rating, userRatingCount, googleMapsUrl, category, phone, website } = place;
+      const { placeId, name, address, reviewUrl, category, phone, website } = place;
+      const rating = place.rating ?? null;
+      const userRatingCount = place.userRatingCount ?? null;
+      const googleMapsUrl = place.googleMapsUrl ?? null;
       let client = store.clients.find((item) => !item.local && item.placeId === placeId);
       const local = store.clients.find((item) => item.local && this.sameName(item.name, name));
       if (local) {
@@ -202,10 +214,19 @@ export class LocalClientsService {
     if (!this.isStore(value)) {
       throw new Error('Os dados locais de clientes estão inválidos e foram preservados.');
     }
-    return value;
+    return {
+      clients: value.clients.map((client) => this.normalizePlace(client)),
+      links: value.links.map(({ pending, ...link }) => ({
+        ...link,
+        ...(pending ? { pending: this.normalizePlace(pending) } : {}),
+      })),
+    };
   }
 
   private write(store: ClientStore): void {
+    if (!this.isStore(store)) {
+      throw new Error('Não foi possível salvar clientes com dados inválidos. Os dados anteriores foram preservados.');
+    }
     try {
       localStorage.setItem(LOCAL_CLIENTS_STORAGE_KEY, JSON.stringify(store));
     } catch {
@@ -213,19 +234,28 @@ export class LocalClientsService {
     }
   }
 
-  private isPlace(value: unknown): value is ClientPlace {
+  private normalizePlace<T extends StoredPlace>(place: T): T & ClientPlace {
+    return {
+      ...place,
+      rating: place.rating ?? null,
+      userRatingCount: place.userRatingCount ?? null,
+      googleMapsUrl: place.googleMapsUrl ?? null,
+    };
+  }
+
+  private isPlace(value: unknown): value is StoredPlace {
     if (typeof value !== 'object' || value === null) return false;
     const p = value as Record<string, unknown>;
     return typeof p['placeId'] === 'string' && !!p['placeId'] &&
       typeof p['name'] === 'string' && typeof p['address'] === 'string' &&
       typeof p['reviewUrl'] === 'string' &&
-      (p['rating'] === null || typeof p['rating'] === 'number') &&
-      (p['userRatingCount'] === null || typeof p['userRatingCount'] === 'number') &&
-      (p['googleMapsUrl'] === null || typeof p['googleMapsUrl'] === 'string') &&
+      (p['rating'] == null || typeof p['rating'] === 'number') &&
+      (p['userRatingCount'] == null || typeof p['userRatingCount'] === 'number') &&
+      (p['googleMapsUrl'] == null || typeof p['googleMapsUrl'] === 'string') &&
       ['category', 'phone', 'website'].every((key) => p[key] == null || typeof p[key] === 'string');
   }
 
-  private isStore(value: unknown): value is ClientStore {
+  private isStore(value: unknown): value is StoredClientStore {
     if (typeof value !== 'object' || value === null) return false;
     const store = value as Record<string, unknown>;
     return Array.isArray(store['clients']) && Array.isArray(store['links']) &&
